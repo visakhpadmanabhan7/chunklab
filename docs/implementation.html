@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>chunklab — Implementation Reference</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1c2030;
+    --border: #2a2f3e;
+    --text: #d7dbe4;
+    --muted: #9aa3b2;
+    --accent: #4f9cf9;
+    --accent-2: #58d6a3;
+    --warn: #f5b440;
+    --danger: #ef6262;
+    --code-bg: #11141b;
+    --kw: #c792ea;
+    --str: #c3e88d;
+    --num: #f78c6c;
+    --com: #6a7280;
+    --fn: #82aaff;
+    --max: 1080px;
+    --sidebar: 280px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.62;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Layout */
+  .layout { display: flex; align-items: flex-start; }
+  nav.toc {
+    position: sticky;
+    top: 0;
+    width: var(--sidebar);
+    height: 100vh;
+    overflow-y: auto;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 24px 18px 60px;
+    flex-shrink: 0;
+  }
+  nav.toc .brand {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    margin: 0 0 2px;
+    color: #fff;
+  }
+  nav.toc .brand .flask { color: var(--accent-2); }
+  nav.toc .tag { color: var(--muted); font-size: 12px; margin: 0 0 18px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: toc; }
+  nav.toc ol li { counter-increment: toc; margin: 1px 0; }
+  nav.toc ol li a {
+    display: block;
+    padding: 6px 10px 6px 30px;
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 13.5px;
+    position: relative;
+  }
+  nav.toc ol li a::before {
+    content: counter(toc);
+    position: absolute;
+    left: 8px;
+    color: var(--border);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+  }
+  nav.toc ol li a:hover { background: var(--panel-2); color: var(--text); text-decoration: none; }
+
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 48px 40px 120px;
+  }
+  .container { max-width: var(--max); margin: 0 auto; }
+
+  /* Headings */
+  h1 { font-size: 38px; line-height: 1.15; margin: 0 0 12px; color: #fff; letter-spacing: -.5px; }
+  h2 {
+    font-size: 26px; margin: 56px 0 16px; padding-top: 12px;
+    color: #fff; border-top: 1px solid var(--border); letter-spacing: -.3px;
+  }
+  h2:first-of-type { border-top: none; }
+  h3 { font-size: 19px; margin: 30px 0 10px; color: #eef1f6; }
+  h4 { font-size: 16px; margin: 22px 0 8px; color: var(--accent-2); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; }
+  p { margin: 12px 0; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 5px 0; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+  section { scroll-margin-top: 20px; }
+
+  /* Badges */
+  .badges { margin: 16px 0 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 20px;
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+  }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .badge.green .dot { background: var(--accent-2); }
+  .badge.orange .dot { background: var(--warn); }
+  .badge.red .dot { background: var(--danger); }
+
+  .lead { font-size: 18px; color: #c7cdd9; }
+
+  /* Code */
+  code {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--panel-2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #e2c08d;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+    line-height: 1.55;
+  }
+  pre code {
+    background: none; padding: 0; color: #cdd3df; font-size: 12.8px;
+  }
+  pre .kw { color: var(--kw); }
+  pre .str { color: var(--str); }
+  pre .num { color: var(--num); }
+  pre .com { color: var(--com); font-style: italic; }
+  pre .fn { color: var(--fn); }
+  pre .punc { color: #89ddff; }
+  .filename {
+    font-family: "SF Mono", Menlo, monospace; font-size: 11.5px; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--border); border-bottom: none;
+    display: inline-block; padding: 4px 12px; border-radius: 8px 8px 0 0; margin-bottom: -16px;
+    position: relative; top: 1px;
+  }
+  .filename + pre { border-top-left-radius: 0; }
+
+  /* Tables */
+  table {
+    width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 13.5px;
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  }
+  thead th {
+    background: var(--panel-2); color: #fff; text-align: left;
+    padding: 10px 12px; font-weight: 600; border-bottom: 1px solid var(--border);
+    font-size: 12.5px; text-transform: uppercase; letter-spacing: .4px;
+  }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(even) { background: rgba(255,255,255,.018); }
+  table code { font-size: 12px; }
+  .method { font-weight: 700; font-size: 11px; padding: 2px 7px; border-radius: 4px; color: #0f1115; }
+  .get { background: #58d6a3; }
+  .post { background: #4f9cf9; }
+  .patch { background: #f5b440; }
+  .delete { background: #ef6262; }
+
+  /* Callouts */
+  .callout {
+    border-radius: 10px; padding: 14px 18px; margin: 20px 0;
+    border: 1px solid var(--border); border-left-width: 4px; background: var(--panel);
+  }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .ctitle { font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .callout.note { border-left-color: var(--accent); }
+  .callout.tip { border-left-color: var(--accent-2); }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.danger { border-left-color: var(--danger); background: rgba(239,98,98,.06); }
+  .callout.security { border-left-color: var(--danger); background: rgba(239,98,98,.07); }
+  .ico { font-size: 16px; }
+
+  /* Diagram */
+  .diagram { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 22px; margin: 20px 0; overflow-x: auto; }
+  .diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 18px 0; }
+  .kpi { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .kpi .v { font-size: 22px; font-weight: 700; color: #fff; }
+  .kpi .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .pill { display:inline-block; font-size:11px; padding:1px 7px; border-radius:10px; background:var(--panel-2); border:1px solid var(--border); color:var(--muted); }
+
+  .toc-toggle { display: none; }
+  footer { color: var(--muted); font-size: 12.5px; margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); }
+
+  /* Responsive */
+  @media (max-width: 920px) {
+    .layout { flex-direction: column; }
+    nav.toc { position: static; width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    nav.toc ol { columns: 2; }
+    main { padding: 28px 18px 80px; }
+    .twocol { grid-template-columns: 1fr; }
+    h1 { font-size: 30px; }
+  }
+  @media (max-width: 560px) {
+    nav.toc ol { columns: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <nav class="toc">
+    <p class="brand"><span class="flask">&#129514;</span> chunklab</p>
+    <p class="tag">Implementation Reference &middot; v0.1</p>
+    <ol>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#toc">Table of Contents</a></li>
+      <li><a href="#goals">Goals &amp; Non-Goals</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#lifecycle">Run Lifecycle &amp; Data Flow</a></li>
+      <li><a href="#datamodel">Data Model</a></li>
+      <li><a href="#chunking">Chunking Strategies</a></li>
+      <li><a href="#evaluation">Evaluation Methodology</a></li>
+      <li><a href="#cost">Cost Model</a></li>
+      <li><a href="#api">API Reference</a></li>
+      <li><a href="#infra">Infrastructure &amp; Docker</a></li>
+      <li><a href="#security">Security</a></li>
+      <li><a href="#setup">Setup &amp; Run</a></li>
+      <li><a href="#testing">Testing &amp; Verification</a></li>
+      <li><a href="#decisions">Architecture Decisions</a></li>
+      <li><a href="#roadmap">Roadmap</a></li>
+    </ol>
+  </nav>
+
+  <main>
+  <div class="container">
+
+  <!-- 1. OVERVIEW -->
+  <section id="overview">
+    <h1>chunklab — Implementation Reference</h1>
+    <p class="lead">
+      chunklab is a full-stack tool for <strong>evaluating and comparing text-chunking strategies for RAG</strong>.
+      You create a project, upload documents, and define a combinatorial matrix of chunking strategies. Each run
+      parses every file, chunks it once per combination, embeds the chunks into pgvector, counts real tokens,
+      estimates cost, and then scores <em>retrieval accuracy</em> with an LLM-as-judge over auto-generated QA pairs.
+      Output feeds analytics dashboards and a RAG chatbot that answers questions over your experiment results.
+    </p>
+    <div class="badges">
+      <span class="badge"><span class="dot"></span>FastAPI (async)</span>
+      <span class="badge green"><span class="dot"></span>Next.js 15 App Router</span>
+      <span class="badge"><span class="dot"></span>Postgres + pgvector</span>
+      <span class="badge orange"><span class="dot"></span>Redis + arq worker</span>
+      <span class="badge green"><span class="dot"></span>FastEmbed bge-small (384d)</span>
+      <span class="badge"><span class="dot"></span>Groq llama-3.3-70b</span>
+      <span class="badge red"><span class="dot"></span>Private repo</span>
+      <span class="badge orange"><span class="dot"></span>v0.1 / no Alembic</span>
+    </div>
+    <p>
+      This document is the flagship, end-to-end implementation reference: architecture, the run pipeline,
+      the database schema, every chunking strategy, the evaluation math, the cost model, the full REST API,
+      Docker topology, the security posture, and the architecture decisions behind it all.
+    </p>
+  </section>
+
+  <!-- 2. TOC -->
+  <section id="toc">
+    <h2>Table of Contents</h2>
+    <ol>
+      <li><a href="#goals">Goals &amp; Non-Goals</a> — what chunklab is and is not</li>
+      <li><a href="#architecture">Architecture</a> — services, diagram, request vs. background work</li>
+      <li><a href="#lifecycle">Run Lifecycle &amp; Data Flow</a> — the pipeline sequence, step by step</li>
+      <li><a href="#datamodel">Data Model</a> — <code>core</code> + <code>results</code> schemas, pgvector, HNSW</li>
+      <li><a href="#chunking">Chunking Strategies</a> — registry pattern, the five built-ins, expander</li>
+      <li><a href="#evaluation">Evaluation Methodology</a> — QA generation, judge, computed IR metrics</li>
+      <li><a href="#cost">Cost Model</a> — notional embeddings vs. real Groq cost</li>
+      <li><a href="#api">API Reference</a> — all routers under <code>/api/v1</code> with sample JSON</li>
+      <li><a href="#infra">Infrastructure &amp; Docker</a> — compose topology, CPU-torch, model cache</li>
+      <li><a href="#security">Security</a> — gitignored <code>.env</code>, private repo, verification gate</li>
+      <li><a href="#setup">Setup &amp; Run</a> — quickstart and commands</li>
+      <li><a href="#testing">Testing &amp; Verification</a> — unit tests and lint</li>
+      <li><a href="#decisions">Architecture Decisions</a> — the why behind the design</li>
+      <li><a href="#roadmap">Roadmap / Future Work</a></li>
+    </ol>
+  </section>
+
+  <!-- 3. GOALS -->
+  <section id="goals">
+    <h2>3. Goals &amp; Non-Goals</h2>
+    <div class="twocol">
+      <div>
+        <h4>Goals</h4>
+        <ul>
+          <li><strong>Head-to-head comparison.</strong> Run many strategy &times; parameter combinations against the same documents and the same QA set, so results are directly comparable.</li>
+          <li><strong>Honest measurement.</strong> Use the embedding model's own tokenizer for token counts, and pull real Groq token usage for judge cost.</li>
+          <li><strong>Dollar-comparable runs.</strong> A notional embedding rate makes otherwise-free local embeddings show up in cost analytics.</li>
+          <li><strong>Two evaluation lenses.</strong> Both an LLM-as-judge (relevance/faithfulness/precision/recall) and classic computed IR metrics (P@k, R@k, MRR, nDCG, F2).</li>
+          <li><strong>Live feedback.</strong> Background processing with per-file, per-combination progress streamed over SSE.</li>
+          <li><strong>Explorable output.</strong> Analytics (accuracy bars, cost-vs-accuracy tradeoff) and a RAG chatbot scoped to a project, run, or run comparison.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Non-Goals (v0.1)</h4>
+        <ul>
+          <li><strong>Multi-tenant auth.</strong> A static <code>user_id</code> (<code>"anonymous"</code>) is used; no login/RBAC.</li>
+          <li><strong>Schema migrations.</strong> No Alembic — startup bootstrap creates everything idempotently.</li>
+          <li><strong>Hosted/managed embeddings.</strong> Embeddings are local (FastEmbed); there is no paid embedding provider.</li>
+          <li><strong>Production-grade retrieval app.</strong> The chatbot answers <em>over experiment results</em>; chunklab is a measurement tool, not a production RAG serving stack.</li>
+          <li><strong>Horizontal autoscaling.</strong> A single arq worker process is the default; scaling is out of scope here.</li>
+          <li><strong>Streaming embeddings/judge at request time.</strong> All heavy work is queued to the worker.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. ARCHITECTURE -->
+  <section id="architecture">
+    <h2>4. Architecture</h2>
+    <p>
+      chunklab is a monorepo (<code>backend/</code>, <code>frontend/</code>, <code>infra/</code>, <code>docs/</code>) deployed as
+      five Docker services. The API layer is thin: request handlers validate input, write rows, and <em>enqueue</em> work.
+      All expensive operations — parsing, chunking, embedding, evaluation — run in a separate <strong>arq</strong> worker
+      backed by Redis. The backend and worker share the same image and the same Hugging Face model cache.
+    </p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 880 470" role="img" aria-label="chunklab service architecture">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="#4f9cf9"></path>
+          </marker>
+          <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="#58d6a3"></path>
+          </marker>
+          <style>
+            .box { fill:#1c2030; stroke:#2a2f3e; stroke-width:1.5; rx:10; }
+            .lbl { fill:#eef1f6; font:600 14px -apple-system,sans-serif; }
+            .sub { fill:#9aa3b2; font:11px "SF Mono",monospace; }
+            .edge { stroke:#4f9cf9; stroke-width:1.6; fill:none; }
+            .edge2 { stroke:#58d6a3; stroke-width:1.6; fill:none; }
+            .etxt { fill:#9aa3b2; font:11px -apple-system,sans-serif; }
+            .port { fill:#58d6a3; font:11px "SF Mono",monospace; }
+          </style>
+        </defs>
+
+        <!-- Browser / Frontend -->
+        <rect class="box" x="20" y="40" width="180" height="84" rx="10"></rect>
+        <text class="lbl" x="36" y="68">Next.js 15 frontend</text>
+        <text class="sub" x="36" y="88">App Router · TanStack</text>
+        <text class="sub" x="36" y="104">Query · Recharts · SSE</text>
+        <text class="port" x="36" y="120">:3000</text>
+
+        <!-- Backend -->
+        <rect class="box" x="350" y="40" width="190" height="84" rx="10"></rect>
+        <text class="lbl" x="366" y="68">FastAPI backend</text>
+        <text class="sub" x="366" y="88">/api/v1 · async</text>
+        <text class="sub" x="366" y="104">SSE progress · chat</text>
+        <text class="port" x="366" y="120">:8000</text>
+
+        <!-- Worker -->
+        <rect class="box" x="350" y="300" width="190" height="100" rx="10"></rect>
+        <text class="lbl" x="366" y="330">arq worker</text>
+        <text class="sub" x="366" y="350">run_pipeline</text>
+        <text class="sub" x="366" y="366">parse · chunk · embed</text>
+        <text class="sub" x="366" y="382">store · evaluate</text>
+
+        <!-- Postgres -->
+        <rect class="box" x="680" y="40" width="180" height="100" rx="10"></rect>
+        <text class="lbl" x="696" y="68">Postgres 16</text>
+        <text class="sub" x="696" y="88">+ pgvector (HNSW)</text>
+        <text class="sub" x="696" y="104">core · results</text>
+        <text class="port" x="696" y="124">:5432</text>
+
+        <!-- Redis -->
+        <rect class="box" x="680" y="300" width="180" height="100" rx="10"></rect>
+        <text class="lbl" x="696" y="330">Redis 7</text>
+        <text class="sub" x="696" y="350">arq queue</text>
+        <text class="sub" x="696" y="366">pub/sub progress</text>
+        <text class="sub" x="696" y="382">state snapshot hash</text>
+        <text class="port" x="696" y="398" style="fill:#58d6a3">:6379</text>
+
+        <!-- Edges -->
+        <path class="edge" d="M200,82 L348,82" marker-end="url(#arrow)"></path>
+        <text class="etxt" x="222" y="74">HTTP / SSE</text>
+
+        <path class="edge" d="M540,72 L678,72" marker-end="url(#arrow)"></path>
+        <text class="etxt" x="556" y="64">SQL</text>
+
+        <path class="edge" d="M510,124 L640,300" marker-end="url(#arrow)"></path>
+        <text class="etxt" x="500" y="220">enqueue job</text>
+
+        <path class="edge2" d="M610,350 L542,350" marker-end="url(#arrow2)"></path>
+        <text class="etxt" x="548" y="342">consume</text>
+
+        <path class="edge2" d="M540,330 L678,120" marker-end="url(#arrow2)"></path>
+        <text class="etxt" x="600" y="250">write chunks + vectors</text>
+
+        <path class="edge2" d="M610,330 L542,150" marker-end="url(#arrow2)"></path>
+
+        <path class="edge2" d="M540,360 L770,140" stroke-dasharray="5 4"></path>
+        <text class="etxt" x="600" y="290" style="fill:#58d6a3">publish progress</text>
+
+        <path class="edge" d="M350,72 L210,118" stroke-dasharray="5 4" marker-end="url(#arrow)"></path>
+        <text class="etxt" x="232" y="128">replay state + stream events</text>
+      </svg>
+    </div>
+
+    <h3>Service responsibilities</h3>
+    <table>
+      <thead><tr><th>Service</th><th>Role</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><strong>frontend</strong></td><td>Next.js 15 UI</td><td>App Router + TypeScript + Tailwind v3 + TanStack Query + Recharts + Zustand. Live progress via native <code>EventSource</code>; chat via <code>fetch</code> + <code>ReadableStream</code>.</td></tr>
+        <tr><td><strong>backend</strong></td><td>FastAPI API</td><td>All endpoints under <code>/api/v1</code>. Validates, persists, enqueues. Holds the arq pool on <code>app.state.arq</code>. Serves SSE progress and the chat token stream.</td></tr>
+        <tr><td><strong>worker</strong></td><td>arq background processor</td><td>Same image as backend, launched with <code>arq app.workers.settings.WorkerSettings</code>. Runs <code>run_pipeline</code> and <code>parse_file_task</code>.</td></tr>
+        <tr><td><strong>postgres</strong></td><td>Storage + vector search</td><td><code>pgvector/pgvector:pg16</code>. Two schemas (<code>core</code>, <code>results</code>). HNSW index on <code>chunks.embedding</code>.</td></tr>
+        <tr><td><strong>redis</strong></td><td>Queue + pub/sub</td><td>arq job queue, progress pub/sub channel, and a state-snapshot hash per run for SSE replay.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Backend layout &amp; conventions</h3>
+    <ul>
+      <li><strong>Settings</strong> only via <code>app.core.config.get_settings()</code> (Pydantic <code>Settings</code>). Never read env elsewhere.</li>
+      <li><strong>LLM</strong> only via <code>app.core.llm.get_llm()</code>; prompts only in <code>app/prompts/prompt_texts.py</code>.</li>
+      <li><strong>Embeddings / tokenizer</strong> only via <code>app.core.embedding</code>.</li>
+      <li>All DB and LLM calls are <strong>async</strong>; CPU-bound model work is run in a thread.</li>
+      <li>New chunking strategy = a class with <code>split()</code> + <code>label()</code> calling <code>register(...)</code>; it auto-appears in runs.</li>
+      <li>New endpoint = a router under <code>app/api/routers/</code>, included in <code>main.py</code> under <code>/api/v1</code>.</li>
+    </ul>
+  </section>
+
+  <!-- 5. LIFECYCLE -->
+  <section id="lifecycle">
+    <h2>5. Run Lifecycle &amp; Data Flow</h2>
+    <p>
+      The heart of chunklab is <code>app/workers/run_pipeline.py</code>. <code>POST /projects/{id}/runs</code> expands the
+      requested combinations, creates the <code>Run</code> + <code>RunCombination</code> rows, and enqueues
+      <code>run_pipeline(ctx, run_id)</code>. The worker then executes the following sequence.
+    </p>
+
+    <div class="diagram"><pre style="margin:0;border:none;background:none"><code>API   POST /projects/{id}/runs ─ expand combinations ─ create Run + RunCombinations ─ enqueue
+  │
+  └─▶ WORKER run_pipeline(ctx, run_id)
+        ├─ set Run status = running
+        ├─ load combinations + files
+        ├─ FOR each file: ensure ParsedDocument
+        │     └─ parse (docling → pypdf/text fallback, in a thread)
+        ├─ generate ONE shared QA set (Groq, evenly-spaced ~900-char passages)
+        ├─ precompute question embeddings
+        │
+        ├─ FOR each combination:
+        │     ├─ status = chunking
+        │     │     └─ FOR each file: split → assemble → count_tokens
+        │     │                       → embed (thread) → bulk-insert Chunk rows (+ vectors)
+        │     ├─ status = evaluating
+        │     │     └─ FOR each QA pair:
+        │     │           retrieve top-k (pgvector cosine) → save Retrieval
+        │     │           → judge (Groq) → save JudgeEvaluation → compute QueryMetrics
+        │     ├─ aggregate CombinationStats (tokens / cost / latency)
+        │     ├─ aggregate Metrics (judged means + macro-averaged IR metrics)
+        │     └─ status = completed
+        │
+        └─ set Run status = completed     (errors → failed)
+
+  progress: every stage publishes to Redis  run:{id}:progress  (pub/sub)
+            AND updates the  run:{id}:state  snapshot hash for SSE replay
+            AND denormalizes progress onto Run / RunCombination rows</code></pre></div>
+
+    <h3>Key sequencing decisions</h3>
+    <ul>
+      <li><strong>Parse once per file.</strong> A <code>ParsedDocument</code> is created if absent and reused across all combinations — parsing never repeats per combination.</li>
+      <li><strong>One shared QA set per run.</strong> QA pairs are generated once and reused for every combination, so all combinations are scored against identical questions and gold passages. This is what makes the comparison fair.</li>
+      <li><strong>Question embeddings precomputed.</strong> The query vectors are computed once before the per-combination loop, not per retrieval.</li>
+      <li><strong>Bulk vector insert.</strong> Each file's chunks are embedded and inserted in bulk with their vectors, not one row at a time.</li>
+      <li><strong>Upload-time parsing.</strong> <code>parse_file_task(ctx, file_id)</code> is enqueued at upload, so files are typically already parsed before a run starts; the run-time parse step is the safety net.</li>
+    </ul>
+
+    <h3>Progress events</h3>
+    <p>
+      <code>app/workers/progress.py</code> publishes structured events to the pub/sub channel <code>run:{id}:progress</code> and
+      keeps a snapshot in the hash <code>run:{id}:state</code>. The SSE endpoint replays the snapshot first, then streams live events.
+    </p>
+    <table>
+      <thead><tr><th>Event type</th><th>Payload</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>run</code></td><td><code>{status, pct}</code></td><td>Overall run progress / status transitions.</td></tr>
+        <tr><td><code>combo</code></td><td><code>{comboId, label, status, pct}</code></td><td>Per-combination progress.</td></tr>
+        <tr><td><code>file</code></td><td><code>{comboId, fileId, stage, status, pct}</code></td><td>Per-file stage within a combination.</td></tr>
+        <tr><td><code>log</code></td><td><code>{level, message}</code></td><td>Human-readable log line.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout note">
+      <p class="ctitle"><span class="ico">&#9432;</span> Run statuses</p>
+      <p>A <code>Run</code> moves through <code>queued &rarr; running &rarr; completed</code> (or <code>failed</code> / <code>partial</code> / <code>canceled</code>). Each <code>RunCombination</code> moves through <code>queued &rarr; chunking &rarr; embedding &rarr; evaluating &rarr; completed</code> (or <code>failed</code>).</p>
+    </div>
+  </section>
+
+  <!-- 6. DATA MODEL -->
+  <section id="datamodel">
+    <h2>6. Data Model</h2>
+    <p>
+      Two Postgres schemas keep application data separate from experiment output. SQLAlchemy 2 (async) models live in
+      <code>app/db/models_core.py</code> and <code>app/db/models_results.py</code>. There is no Alembic in v0.1:
+      <code>app/db/setup_db.py</code>'s <code>init_db()</code> runs at startup and creates everything idempotently —
+      <code>CREATE EXTENSION vector</code>, the two schemas, <code>create_all</code> on both metadatas, and the HNSW index.
+    </p>
+
+    <h3 id="core-schema">Schema: <code>core</code> — application data</h3>
+
+    <h4>core.projects</h4>
+    <table>
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>UUID</td><td>PK (uuid4)</td></tr>
+        <tr><td><code>user_id</code></td><td>varchar(128)</td><td>Default <code>"anonymous"</code>, indexed (v0.1 has no real auth)</td></tr>
+        <tr><td><code>name</code></td><td>varchar(256)</td><td>Project name</td></tr>
+        <tr><td><code>description</code></td><td>text</td><td>Nullable</td></tr>
+        <tr><td><code>created_at / updated_at</code></td><td>timestamptz</td><td><code>updated_at</code> via <code>onupdate=func.now()</code></td></tr>
+      </tbody>
+    </table>
+
+    <h4>core.files</h4>
+    <table>
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>UUID</td><td>PK</td></tr>
+        <tr><td><code>project_id</code></td><td>UUID</td><td>FK &rarr; <code>core.projects</code>, <code>ON DELETE CASCADE</code>, indexed</td></tr>
+        <tr><td><code>filename</code></td><td>varchar(512)</td><td>Original filename</td></tr>
+        <tr><td><code>storage_path</code></td><td>text</td><td>Path under <code>STORAGE_DIR</code></td></tr>
+        <tr><td><code>mime_type</code></td><td>varchar(128)</td><td>Nullable</td></tr>
+        <tr><td><code>size_bytes</code></td><td>bigint</td><td>Nullable</td></tr>
+        <tr><td><code>status</code></td><td>varchar(32)</td><td><code>uploaded | parsing | parsed | failed</code>, indexed</td></tr>
+        <tr><td><code>parser_used</code></td><td>varchar(32)</td><td>Which parser succeeded (e.g. docling / pypdf / text)</td></tr>
+        <tr><td><code>error</code></td><td>text</td><td>Parse error, if any</td></tr>
+      </tbody>
+    </table>
+
+    <h4>core.parsed_documents</h4>
+    <table>
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>UUID</td><td>PK</td></tr>
+        <tr><td><code>file_id</code></td><td>UUID</td><td>FK &rarr; <code>core.files</code>, <strong>unique</strong>, indexed (one parse per file)</td></tr>
+        <tr><td><code>clean_text</code></td><td>text</td><td>Extracted plain text used for chunking</td></tr>
+        <tr><td><code>char_count</code></td><td>int</td><td>Length of <code>clean_text</code></td></tr>
+        <tr><td><code>page_count</code></td><td>int</td><td>Nullable (PDFs)</td></tr>
+        <tr><td><code>parsed_at</code></td><td>timestamptz</td><td>Server default <code>now()</code></td></tr>
+      </tbody>
+    </table>
+
+    <h4>core.runs</h4>
+    <table>
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>UUID</td><td>PK</td></tr>
+        <tr><td><code>project_id</code></td><td>UUID</td><td>FK &rarr; <code>core.projects</code>, cascade, indexed</td></tr>
+        <tr><td><code>name</code></td><td>varchar(256)</td><td>Run name</td></tr>
+        <tr><td><code>config</code></td><td>JSONB</td><td>Full run request (combinations, file selection, etc.)</td></tr>
+        <tr><td><code>embedding_model</code></td><td>varchar(128)</td><td>Model used (e.g. <code>BAAI/bge-small-en-v1.5</code>)</td></tr>
+        <tr><td><code>top_k</code></td><td>int</td><td>Retrieval depth, default 5</td></tr>
+        <tr><td><code>status</code></td><td>varchar(32)</td><td><code>queued | running | completed | failed | partial | canceled</code>, indexed</td></tr>
+        <tr><td><code>progress</code></td><td>float</td><td>Denormalized 0..1 progress</td></tr>
+        <tr><td><code>total_combinations</code></td><td>int</td><td>Count of expanded combinations</td></tr>
+        <tr><td><code>started_at / completed_at</code></td><td>timestamptz</td><td>Nullable</td></tr>
+        <tr><td><code>error</code></td><td>text</td><td>Failure detail</td></tr>
+      </tbody>
+    </table>
+
+    <h4>core.run_combinations</h4>
+    <table>
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>UUID</td><td>PK</td></tr>
+        <tr><td><code>run_id</code></td><td>UUID</td><td>FK &rarr; <code>core.runs</code>, cascade, indexed</td></tr>
+        <tr><td><code>strategy</code></td><td>varchar(32)</td><td><code>sentence | character | recursive | token | semantic</code></td></tr>
+        <tr><td><code>params</code></td><td>JSONB</td><td>Resolved parameters for this cell</td></tr>
+        <tr><td><code>label</code></td><td>varchar(128)</td><td>Human label, e.g. <code>sentence&middot;512/20</code></td></tr>
+        <tr><td><code>status</code></td><td>varchar(32)</td><td><code>queued | chunking | embedding | evaluating | completed | failed</code>, indexed</td></tr>
+        <tr><td><code>progress</code></td><td>float</td><td>Denormalized 0..1 progress</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="results-schema">Schema: <code>results</code> — experiment output</h3>
+
+    <h4>results.chunks</h4>
+    <table>
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>UUID</td><td>PK</td></tr>
+        <tr><td><code>combination_id</code></td><td>UUID</td><td>FK &rarr; <code>core.run_combinations</code>, cascade, indexed</td></tr>
+        <tr><td><code>file_id</code></td><td>UUID</td><td>FK &rarr; <code>core.files</code>, cascade, indexed</td></tr>
+        <tr><td><code>chunk_index</code></td><td>int</td><td>Position within the file for this combination</td></tr>
+        <tr><td><code>content</code></td><td>text</td><td>Chunk text</td></tr>
+        <tr><td><code>token_count</code></td><td>int</td><td>Real token count via the embedding model's tokenizer</td></tr>
+        <tr><td><code>char_count</code></td><td>int</td><td>Character length</td></tr>
+        <tr><td><code>embedding</code></td><td><strong>vector(384)</strong></td><td>pgvector column; HNSW indexed (see below)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <p class="ctitle"><span class="ico">&#9889;</span> pgvector + HNSW</p>
+      <p>
+        The <code>embedding</code> column is <code>vector(384)</code>, matching <code>EMBEDDING_DIM</code> and the
+        <code>BAAI/bge-small-en-v1.5</code> output size. <code>init_db()</code> builds an HNSW index on it with
+        <code>vector_cosine_ops</code>, <code>m = 16</code>, <code>ef_construction = 64</code>. Retrieval uses cosine distance
+        (<code>embedding &lt;=&gt; query</code>) filtered by <code>combination_id</code> and ordered by distance, <code>LIMIT k</code>.
+        Relevance score returned to callers is <code>1 - distance</code>.
+      </p>
+    </div>
+
+    <h4>results.combination_stats <span class="pill">unique per combination</span></h4>
+    <table>
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>combination_id</code></td><td>UUID</td><td>FK, <strong>unique</strong>, indexed</td></tr>
+        <tr><td><code>chunk_count</code></td><td>int</td><td>Chunks produced</td></tr>
+        <tr><td><code>total_tokens</code></td><td>int</td><td>Sum of chunk token counts</td></tr>
+        <tr><td><code>avg_tokens_per_chunk</code></td><td>float</td><td>Mean chunk size</td></tr>
+        <tr><td><code>embedding_cost_usd</code></td><td>numeric(12,6)</td><td>Notional embedding cost</td></tr>
+        <tr><td><code>judge_cost_usd</code></td><td>numeric(12,6)</td><td>Real Groq judge cost</td></tr>
+        <tr><td><code>total_cost_usd</code></td><td>numeric(12,6)</td><td>embedding + judge</td></tr>
+        <tr><td><code>chunk_latency_ms</code></td><td>int</td><td>Chunking time</td></tr>
+        <tr><td><code>embed_latency_ms</code></td><td>int</td><td>Embedding time</td></tr>
+        <tr><td><code>eval_latency_ms</code></td><td>int</td><td>Evaluation time</td></tr>
+      </tbody>
+    </table>
+
+    <h4>results.qa_pairs</h4>
+    <table>
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>run_id</code></td><td>UUID</td><td>FK &rarr; <code>core.runs</code>, cascade, indexed (shared across combinations)</td></tr>
+        <tr><td><code>file_id</code></td><td>UUID</td><td>FK &rarr; <code>core.files</code>, cascade, indexed</td></tr>
+        <tr><td><code>question</code></td><td>text</td><td>Generated question</td></tr>
+        <tr><td><code>reference_answer</code></td><td>text</td><td>Gold answer</td></tr>
+        <tr><td><code>source_chunk_text</code></td><td>text</td><td>The gold passage the QA was extracted from</td></tr>
+        <tr><td><code>source_offset_start / end</code></td><td>int</td><td>Char offsets of the gold passage in <code>clean_text</code></td></tr>
+      </tbody>
+    </table>
+
+    <h4>results.retrievals</h4>
+    <table>
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>combination_id</code></td><td>UUID</td><td>FK, cascade, indexed</td></tr>
+        <tr><td><code>qa_pair_id</code></td><td>UUID</td><td>FK &rarr; <code>results.qa_pairs</code>, cascade, indexed</td></tr>
+        <tr><td><code>retrieved_chunk_ids</code></td><td>UUID[]</td><td>Top-k chunk ids in rank order</td></tr>
+        <tr><td><code>scores</code></td><td>float[]</td><td>Relevance scores (1 - distance) in rank order</td></tr>
+        <tr><td><code>latency_ms</code></td><td>int</td><td>Retrieval time</td></tr>
+      </tbody>
+    </table>
+
+    <h4>results.judge_evaluations <span class="pill">unique per retrieval</span></h4>
+    <table>
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>retrieval_id</code></td><td>UUID</td><td>FK, <strong>unique</strong>, indexed</td></tr>
+        <tr><td><code>relevance</code></td><td>float</td><td>0..1</td></tr>
+        <tr><td><code>faithfulness</code></td><td>float</td><td>0..1</td></tr>
+        <tr><td><code>context_precision</code></td><td>float</td><td>0..1</td></tr>
+        <tr><td><code>context_recall</code></td><td>float</td><td>0..1</td></tr>
+        <tr><td><code>judge_feedback</code></td><td>text</td><td>Free-form rationale, nullable</td></tr>
+        <tr><td><code>judge_model</code></td><td>varchar(128)</td><td>Model used, nullable</td></tr>
+        <tr><td><code>judge_tokens_in / out</code></td><td>int</td><td>Real Groq token usage (drives judge cost)</td></tr>
+      </tbody>
+    </table>
+
+    <h4>results.metrics <span class="pill">unique per combination</span></h4>
+    <table>
+      <thead><tr><th>Column</th><th>Type</th><th>Group</th></tr></thead>
+      <tbody>
+        <tr><td><code>combination_id</code></td><td>UUID (unique, indexed)</td><td>—</td></tr>
+        <tr><td><code>relevance</code></td><td>float</td><td rowspan="4">LLM-judged means</td></tr>
+        <tr><td><code>faithfulness</code></td><td>float</td></tr>
+        <tr><td><code>context_precision</code></td><td>float</td></tr>
+        <tr><td><code>context_recall</code></td><td>float</td></tr>
+        <tr><td><code>precision_at_k</code></td><td>float</td><td rowspan="5">Computed IR metrics (macro-avg)</td></tr>
+        <tr><td><code>recall_at_k</code></td><td>float</td></tr>
+        <tr><td><code>mrr</code></td><td>float</td></tr>
+        <tr><td><code>ndcg_at_k</code></td><td>float</td></tr>
+        <tr><td><code>f2</code></td><td>float</td></tr>
+        <tr><td><code>avg_retrieval_latency_ms</code></td><td>float</td><td>Performance</td></tr>
+      </tbody>
+    </table>
+
+    <p>All tables carry a <code>TimestampMixin</code> (<code>created_at</code> / <code>updated_at</code>) except <code>parsed_documents</code>, which uses its own <code>parsed_at</code>.</p>
+  </section>
+
+  <!-- 7. CHUNKING -->
+  <section id="chunking">
+    <h2>7. Chunking Strategies</h2>
+    <p>
+      Strategies live in <code>app/services/chunking/</code> and follow a <strong>registry pattern</strong>. Each strategy
+      implements <code>split(text, params) -&gt; list[str]</code> and <code>label(params) -&gt; str</code>, and calls
+      <code>register(...)</code> so it auto-appears in run building. There are five built-ins.
+    </p>
+
+    <table>
+      <thead><tr><th>Strategy</th><th>Engine</th><th>Params</th><th>Label</th></tr></thead>
+      <tbody>
+        <tr><td><code>sentence</code></td><td>llama-index <code>SentenceSplitter</code></td><td><code>size</code> (tokens), <code>overlap</code></td><td><code>sentence&middot;{size}/{overlap}</code></td></tr>
+        <tr><td><code>character</code></td><td>Manual fixed-size + overlap</td><td><code>size</code> (chars), <code>overlap</code></td><td><code>character&middot;{size}/{overlap}</code></td></tr>
+        <tr><td><code>recursive</code></td><td>langchain <code>RecursiveCharacterTextSplitter</code></td><td><code>chunk_size</code>, <code>overlap</code></td><td><code>recursive&middot;{chunk_size}/{overlap}</code></td></tr>
+        <tr><td><code>token</code></td><td>HF tokenizer windowing</td><td><code>size</code> (tokens), <code>overlap</code></td><td><code>token&middot;{size}/{overlap}</code></td></tr>
+        <tr><td><code>semantic</code></td><td>Custom: sentence embeddings + cosine-distance percentile breakpoints</td><td><code>breakpoint_percentile</code></td><td><code>semantic&middot;pct{n}</code></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Expansion &amp; assembly</h3>
+    <ul>
+      <li><strong><code>expander.expand(combinations)</code></strong> turns each spec <code>{strategy, params}</code> into labeled, de-duplicated <code>ExpandedCombination</code> cells. <code>params</code> may include <code>sizes: [...]</code> to fan out into multiple cells in one go.</li>
+      <li><strong><code>assemble(text, pieces)</code></strong> wraps raw string pieces into <code>Chunk(index, content, start, end)</code> objects, computing best-effort character offsets back into the source text.</li>
+    </ul>
+
+    <div class="callout note">
+      <p class="ctitle"><span class="ico">&#9432;</span> Token honesty</p>
+      <p>
+        Token counts are computed with the embedding model's own Hugging Face <code>AutoTokenizer</code> (with a tiktoken
+        fallback) via <code>app.core.embedding</code>, so reported tokens reflect what the embedder actually sees — not an
+        approximation. This is what makes per-combination token and cost comparisons meaningful.
+      </p>
+    </div>
+
+    <h4>Adding a strategy</h4>
+    <pre><code><span class="com"># app/services/chunking/my_strategy.py</span>
+<span class="kw">from</span> app.services.chunking.registry <span class="kw">import</span> register
+
+<span class="kw">class</span> <span class="fn">MyStrategy</span>:
+    name = <span class="str">"my_strategy"</span>
+    <span class="kw">def</span> <span class="fn">split</span>(self, text: str, params: dict) -> <span class="kw">list</span>[str]:
+        ...
+    <span class="kw">def</span> <span class="fn">label</span>(self, params: dict) -> str:
+        <span class="kw">return</span> <span class="str">f"my_strategy&middot;{params['size']}"</span>
+
+register(MyStrategy())   <span class="com"># auto-appears in runs; add a UI entry in frontend/src/lib/strategies.ts</span></code></pre>
+  </section>
+
+  <!-- 8. EVALUATION -->
+  <section id="evaluation">
+    <h2>8. Evaluation Methodology</h2>
+    <p>
+      Evaluation lives in <code>app/services/eval/</code> and combines an <strong>LLM-as-judge</strong> with
+      <strong>computed IR metrics</strong>. All prompts are centralized in <code>app/prompts/prompt_texts.py</code>
+      (<code>QA_GENERATOR_PROMPT</code>, <code>JUDGE_PROMPT</code>, <code>CHAT_SYSTEM_PROMPT</code>).
+    </p>
+
+    <h3>8.1 QA generation — <code>qa_generator.py</code></h3>
+    <p>
+      <code>generate_qa_pairs(text, n)</code> samples <code>n</code> evenly-spaced passages of roughly 900 characters from the
+      document, then calls Groq's structured <code>extract()</code> with <code>QA_GENERATOR_PROMPT</code> to produce
+      <code>{question, reference_answer}</code> per passage. The gold passage and its character offsets are stored on the
+      <code>qa_pairs</code> row. <code>n</code> comes from <code>QA_PAIRS_PER_FILE</code> (default 8). The QA set is generated
+      <em>once per run</em> and reused by every combination.
+    </p>
+
+    <h3>8.2 Retrieval — <code>retriever.py</code></h3>
+    <p>
+      <code>retrieve(session, combination_id, query_vector, k)</code> runs a pgvector cosine search:
+      <code>WHERE combination_id = ...</code>, <code>ORDER BY embedding &lt;=&gt; query</code>, <code>LIMIT k</code>.
+      Each result's relevance score is <code>1 - cosine_distance</code>.
+    </p>
+
+    <h3>8.3 LLM-as-judge — <code>judge.py</code></h3>
+    <p>
+      <code>judge(question, reference_answer, contexts)</code> calls Groq's <code>extract()</code> with
+      <code>JUDGE_PROMPT</code> at <strong>temperature 0</strong> and returns four scores in <code>[0, 1]</code> plus free-form
+      feedback. Token usage from <code>response.usage</code> is captured for real cost accounting.
+    </p>
+    <table>
+      <thead><tr><th>Dimension</th><th>What it measures</th></tr></thead>
+      <tbody>
+        <tr><td><code>relevance</code></td><td>Do the retrieved contexts actually pertain to the question?</td></tr>
+        <tr><td><code>faithfulness</code></td><td>Is the reference answer supported by (groundable in) the retrieved contexts?</td></tr>
+        <tr><td><code>context_precision</code></td><td>Of the retrieved contexts, how much is on-topic vs. noise?</td></tr>
+        <tr><td><code>context_recall</code></td><td>Do the contexts cover what's needed to answer fully?</td></tr>
+      </tbody>
+    </table>
+
+    <h3>8.4 Computed IR metrics — <code>metrics.py</code></h3>
+    <p>
+      The <strong>ground truth</strong> is the gold passage a QA pair was generated from. A retrieved chunk counts as
+      <em>relevant</em> when it is from the <strong>same file</strong> AND its word-set overlap with the gold passage meets a
+      threshold:
+    </p>
+    <pre><code><span class="com"># relevance test (RELEVANCE_THRESHOLD = 0.5)</span>
+gold  = words(gold_passage)        <span class="com"># gold needs &gt;= 5 words, else not relevant</span>
+chunk = words(chunk_text)
+relevant = (chunk.file_id == gold.file_id) <span class="kw">and</span>
+           (|gold &cap; chunk| / |gold|) &gt;= <span class="num">0.5</span></code></pre>
+    <p>With a single gold passage per question, the per-query metrics over the top-<code>k</code> flags are:</p>
+    <table>
+      <thead><tr><th>Metric</th><th>Formula (single gold passage)</th></tr></thead>
+      <tbody>
+        <tr><td><strong>precision@k</strong></td><td><code>num_relevant / max(k, 1)</code></td></tr>
+        <tr><td><strong>recall@k</strong></td><td><code>1.0</code> if any relevant in top-k else <code>0.0</code></td></tr>
+        <tr><td><strong>MRR</strong></td><td><code>1 / rank</code> of the first relevant hit (else 0)</td></tr>
+        <tr><td><strong>nDCG@k</strong></td><td><code>DCG / IDCG</code> with <code>DCG = &Sigma; 1/log&#8322;(i+2)</code> over relevant positions, <code>IDCG = 1</code></td></tr>
+        <tr><td><strong>F2</strong></td><td><code>(5&middot;P&middot;R) / (4&middot;P + R)</code> — recall-weighted F-measure</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Per-query results are combined with <code>macro_average(...)</code> (simple mean across queries) and written to the
+      combination's <code>metrics</code> row alongside the judged means. All values are rounded to 4 decimals. The metric code
+      is adapted from the author's thesis (<code>final_thesis/textbook_log.py</code>).
+    </p>
+
+    <div class="callout note">
+      <p class="ctitle"><span class="ico">&#9432;</span> Two lenses, on purpose</p>
+      <p>
+        The judge captures semantic quality ("is this context good?"); the computed metrics capture positional/overlap
+        accuracy against a known gold passage. Reporting both guards against either lens being misleading on its own.
+      </p>
+    </div>
+  </section>
+
+  <!-- 9. COST -->
+  <section id="cost">
+    <h2>9. Cost Model</h2>
+    <p>
+      Costs are computed in <code>app/core/pricing.py</code>. Local embeddings have no real API cost, so the embedding rate is
+      a <em>notional</em>, configurable reference that makes chunking combinations dollar-comparable. The Groq judge cost is
+      <strong>real</strong>, derived from <code>response.usage</code>.
+    </p>
+    <pre><code><span class="kw">def</span> <span class="fn">embedding_cost</span>(total_tokens) -> <span class="kw">float</span>:
+    <span class="kw">return</span> <span class="kw">round</span>(total_tokens / <span class="num">1000</span> * EMBED_COST_PER_1K, <span class="num">6</span>)   <span class="com"># notional</span>
+
+<span class="kw">def</span> <span class="fn">groq_cost</span>(prompt_tokens, completion_tokens) -> <span class="kw">float</span>:
+    <span class="kw">return</span> <span class="kw">round</span>(
+        prompt_tokens     / <span class="num">1_000_000</span> * GROQ_INPUT_COST_PER_M  +
+        completion_tokens / <span class="num">1_000_000</span> * GROQ_OUTPUT_COST_PER_M, <span class="num">6</span>)   <span class="com"># real</span>
+
+total_cost = embedding_cost + judge_cost   <span class="com"># stored on combination_stats</span></code></pre>
+    <div class="kpis">
+      <div class="kpi"><div class="v">$0.00002</div><div class="l">EMBED_COST_PER_1K (notional)</div></div>
+      <div class="kpi"><div class="v">$0.59</div><div class="l">GROQ_INPUT_COST_PER_M</div></div>
+      <div class="kpi"><div class="v">$0.79</div><div class="l">GROQ_OUTPUT_COST_PER_M</div></div>
+      <div class="kpi"><div class="v">per combo</div><div class="l">cost stored on combination_stats</div></div>
+    </div>
+    <p>
+      The cost-vs-accuracy tradeoff endpoint (<code>analytics/tradeoff</code>) plots each combination's
+      <code>total_cost_usd</code> against an accuracy metric, so you can see which strategies buy the most accuracy per dollar.
+    </p>
+  </section>
+
+  <!-- 10. API -->
+  <section id="api">
+    <h2>10. API Reference</h2>
+    <p>
+      All endpoints are under <code>/api/v1</code> (routers in <code>app/api/routers/</code>, included by
+      <code>main.py</code>). A bare <code>GET /health</code> is used by the Docker healthcheck. The <code>main.py</code> lifespan
+      runs <code>configure_logging</code>, <code>init_db</code>, creates the arq pool on <code>app.state.arq</code>, and applies
+      CORS from <code>CORS_ORIGINS</code>.
+    </p>
+
+    <h3>Projects — <code>projects.py</code></h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method post">POST</span></td><td><code>/projects</code></td><td>Create a project</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/projects</code></td><td>List projects</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/projects/{id}</code></td><td>Get one project</td></tr>
+        <tr><td><span class="method patch">PATCH</span></td><td><code>/projects/{id}</code></td><td>Update name/description</td></tr>
+        <tr><td><span class="method delete">DELETE</span></td><td><code>/projects/{id}</code></td><td>Delete project (cascades)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Files — <code>files.py</code></h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method post">POST</span></td><td><code>/projects/{id}/files</code></td><td>Multipart upload (field name <code>upload</code>); saves file, enqueues <code>parse_file_task</code></td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/projects/{id}/files</code></td><td>List files in a project</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/files/{id}</code></td><td>File metadata + status</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/files/{id}/parsed</code></td><td>Parsed document (clean text, counts)</td></tr>
+        <tr><td><span class="method delete">DELETE</span></td><td><code>/files/{id}</code></td><td>Delete a file</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Runs — <code>runs.py</code></h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method post">POST</span></td><td><code>/projects/{id}/runs</code></td><td>Create + expand + enqueue a run (body <code>RunCreate</code>)</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/projects/{id}/runs</code></td><td>List runs in a project</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/runs/{id}</code></td><td><code>RunDetail</code> with combinations</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/runs/{id}/combinations</code></td><td>List combinations for a run</td></tr>
+        <tr><td><span class="method post">POST</span></td><td><code>/runs/{id}/cancel</code></td><td>Cancel a running run</td></tr>
+      </tbody>
+    </table>
+    <h4>POST /projects/{id}/runs — request body</h4>
+    <pre><code>{
+  <span class="str">"name"</span>: <span class="str">"baseline matrix"</span>,
+  <span class="str">"top_k"</span>: <span class="num">5</span>,
+  <span class="str">"combinations"</span>: [
+    { <span class="str">"strategy"</span>: <span class="str">"sentence"</span>,  <span class="str">"params"</span>: { <span class="str">"sizes"</span>: [<span class="num">256</span>, <span class="num">512</span>], <span class="str">"overlap"</span>: <span class="num">20</span> } },
+    { <span class="str">"strategy"</span>: <span class="str">"recursive"</span>, <span class="str">"params"</span>: { <span class="str">"chunk_size"</span>: <span class="num">512</span>, <span class="str">"overlap"</span>: <span class="num">64</span> } },
+    { <span class="str">"strategy"</span>: <span class="str">"semantic"</span>,  <span class="str">"params"</span>: { <span class="str">"breakpoint_percentile"</span>: <span class="num">95</span> } }
+  ],
+  <span class="str">"file_ids"</span>: <span class="str">"all"</span>
+}</code></pre>
+    <p><code>file_ids</code> accepts the literal <code>"all"</code> or a list of file UUIDs. <code>params.sizes: [...]</code> fans out into multiple combinations. The response includes the created run and its expanded combinations.</p>
+
+    <h3>Progress — <code>progress.py</code></h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method get">GET</span></td><td><code>/runs/{id}/progress</code></td><td>Current snapshot (reads the state hash)</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/runs/{id}/progress/stream</code></td><td><strong>SSE</strong> — replays the state hash, then streams pub/sub events</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Results — <code>results.py</code></h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method get">GET</span></td><td><code>/runs/{id}/results</code></td><td>Per-combination report (metrics + stats)</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/combinations/{id}/chunks</code></td><td>Paginated chunks (no vectors)</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/runs/{id}/qa-pairs</code></td><td>The run's shared QA set</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Analytics — <code>analytics.py</code></h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method get">GET</span></td><td><code>/runs/{id}/analytics/compare</code></td><td>Per-combination comparison within a run</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/runs/{id}/analytics/tradeoff</code></td><td>Cost-vs-accuracy points</td></tr>
+        <tr><td><span class="method get">GET</span></td><td><code>/projects/{id}/analytics/runs</code></td><td>Cross-run summary for a project</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Chat — <code>chat.py</code></h3>
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method post">POST</span></td><td><code>/chat/stream</code></td><td>RAG chat; returns a <code>text/plain</code> token stream</td></tr>
+      </tbody>
+    </table>
+    <h4>POST /chat/stream — request body (ChatRequest)</h4>
+    <pre><code>{
+  <span class="str">"scope"</span>: <span class="str">"run"</span>,                <span class="com">// "project" | "run" | "compare"</span>
+  <span class="str">"run_id"</span>: <span class="str">"&lt;uuid&gt;"</span>,            <span class="com">// or project_id, or run_ids: [&lt;uuid&gt;, &lt;uuid&gt;]</span>
+  <span class="str">"message"</span>: <span class="str">"Which combination had the best F2?"</span>,
+  <span class="str">"history"</span>: []                    <span class="com">// prior turns</span>
+}</code></pre>
+    <p>
+      Chat context is built by <code>reporting.build_run_report(...)</code>, the same per-combination row builder used by the
+      results and analytics endpoints. The system prompt is <code>CHAT_SYSTEM_PROMPT</code>.
+    </p>
+  </section>
+
+  <!-- 11. INFRA -->
+  <section id="infra">
+    <h2>11. Infrastructure &amp; Docker</h2>
+    <p>The full stack runs via <code>docker-compose.yml</code> with five services and four named volumes.</p>
+
+    <table>
+      <thead><tr><th>Service</th><th>Image / build</th><th>Port</th><th>Healthcheck</th></tr></thead>
+      <tbody>
+        <tr><td>postgres</td><td><code>pgvector/pgvector:pg16</code></td><td>5432</td><td><code>pg_isready</code></td></tr>
+        <tr><td>redis</td><td><code>redis:7-alpine</code></td><td>6379</td><td><code>redis-cli ping</code></td></tr>
+        <tr><td>backend</td><td><code>Dockerfile.backend</code> (uvicorn)</td><td>8000</td><td><code>GET /health</code></td></tr>
+        <tr><td>worker</td><td>same image, <code>arq ...WorkerSettings</code></td><td>—</td><td>—</td></tr>
+        <tr><td>frontend</td><td><code>Dockerfile.frontend</code> (Next standalone)</td><td>3000</td><td>—</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Topology &amp; dependencies</h3>
+    <ul>
+      <li><strong>postgres</strong> mounts <code>infra/postgres/init.sql</code>, which runs <code>CREATE EXTENSION vector</code> and creates the schemas before the app connects.</li>
+      <li><strong>backend</strong> and <strong>worker</strong> both <code>depends_on</code> postgres + redis being <em>healthy</em>; worker also waits for backend to start.</li>
+      <li><strong>frontend</strong> waits for backend to be healthy; it's built with build arg <code>NEXT_PUBLIC_API_BASE_URL=http://localhost:8000</code>.</li>
+      <li><code>DATABASE_URL</code> / <code>REDIS_URL</code> point at the service names (<code>postgres</code>, <code>redis</code>) inside the compose network.</li>
+    </ul>
+
+    <h3>Shared volumes</h3>
+    <table>
+      <thead><tr><th>Volume</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>pgdata</code></td><td>Postgres data directory</td></tr>
+        <tr><td><code>redisdata</code></td><td>Redis persistence</td></tr>
+        <tr><td><code>uploads</code></td><td>Uploaded files, shared by backend + worker (<code>STORAGE_DIR=/app/data/uploads</code>)</td></tr>
+        <tr><td><code>hf_cache</code></td><td>Hugging Face model cache (<code>/root/.cache</code>), shared by backend + worker</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <p class="ctitle"><span class="ico">&#9889;</span> CPU-only torch + shared model cache</p>
+      <p>
+        <code>Dockerfile.backend</code> installs <strong>CPU-only torch first</strong>, then the rest of
+        <code>requirements</code> — this stops docling from pulling in the heavy CUDA torch build. System libs
+        <code>libgl1</code> and <code>libglib2.0-0</code> are installed for docling, and <code>PYTHONPATH=/app/backend</code> is set.
+        Because backend and worker share the same image <em>and</em> the <code>hf_cache</code> volume, the embedding model is
+        downloaded once and reused by both — no duplicate downloads, faster cold starts.
+      </p>
+    </div>
+  </section>
+
+  <!-- 12. SECURITY -->
+  <section id="security">
+    <h2>12. Security</h2>
+
+    <div class="callout security">
+      <p class="ctitle"><span class="ico">&#128274;</span> Secrets never touch git</p>
+      <p>
+        The real Groq API key lives <strong>only</strong> in a <strong>gitignored</strong> <code>.env</code>. The committed
+        <code>.env.example</code> contains placeholders only. The key was copied into chunklab's local <code>.env</code> from
+        another local project and was <strong>never committed</strong>. The repository is <strong>private</strong>.
+      </p>
+    </div>
+
+    <h3>What is ignored</h3>
+    <p><code>.gitignore</code> blocks secrets while keeping the example:</p>
+    <pre><code><span class="com"># .gitignore</span>
+.env
+.env.*
+!.env.example
+*.key
+*.pem</code></pre>
+
+    <div class="callout danger">
+      <p class="ctitle"><span class="ico">&#9888;</span> Verification gate — run before any <code>git add</code></p>
+      <pre style="margin:8px 0 0;border:none;background:#0c0e13"><code><span class="com"># 1) confirm .env is actually ignored (must print a matching rule)</span>
+git check-ignore -v .env
+
+<span class="com"># 2) confirm no env file is tracked (must print NOTHING)</span>
+git ls-files | grep .env</code></pre>
+      <p>If step 1 does not match a rule, or step 2 prints any path, <strong>stop</strong> — do not commit.</p>
+    </div>
+
+    <h3>Posture summary</h3>
+    <ul>
+      <li>All configuration is read through <code>app.core.config.Settings</code>; secrets are never hardcoded or read ad hoc.</li>
+      <li>Real <code>.env</code> is gitignored; <code>.env.example</code> ships placeholders for onboarding.</li>
+      <li>Repository visibility is <strong>private</strong>.</li>
+      <li>CORS is restricted via <code>CORS_ORIGINS</code> (default <code>http://localhost:3000</code>).</li>
+    </ul>
+  </section>
+
+  <!-- 13. SETUP -->
+  <section id="setup">
+    <h2>13. Setup &amp; Run</h2>
+
+    <h4>Configure secrets</h4>
+    <pre><code><span class="com"># never commit .env</span>
+cp .env.example .env
+<span class="com"># then set GROQ_API_KEY=... in .env (free key at https://console.groq.com)</span></code></pre>
+
+    <h4>Launch the whole stack</h4>
+    <pre><code>docker compose up --build           <span class="com"># postgres+pgvector, redis, backend, worker, frontend</span>
+docker compose exec backend python -m app.scripts.seed   <span class="com"># sample project + doc (optional)</span>
+open http://localhost:3000</code></pre>
+
+    <h4>Backend / frontend locally</h4>
+    <pre><code>python -m pytest backend/tests -v   <span class="com"># unit tests (pure logic, no services needed)</span>
+ruff check backend/app backend/tests
+cd frontend &amp;&amp; npm install &amp;&amp; npm run build</code></pre>
+
+    <h3>Environment variables (<code>.env.example</code>)</h3>
+    <table>
+      <thead><tr><th>Variable</th><th>Default / example</th></tr></thead>
+      <tbody>
+        <tr><td><code>GROQ_API_KEY</code></td><td>&lt;your key&gt; (placeholder in example)</td></tr>
+        <tr><td><code>GROQ_MODEL</code></td><td><code>llama-3.3-70b-versatile</code></td></tr>
+        <tr><td><code>EMBEDDING_MODEL</code></td><td><code>BAAI/bge-small-en-v1.5</code></td></tr>
+        <tr><td><code>EMBEDDING_DIM</code></td><td><code>384</code></td></tr>
+        <tr><td><code>DATABASE_URL</code></td><td><code>postgresql+asyncpg://chunklab:chunklab@postgres:5432/chunklab</code></td></tr>
+        <tr><td><code>POSTGRES_USER / PASSWORD / DB</code></td><td><code>chunklab</code></td></tr>
+        <tr><td><code>REDIS_URL</code></td><td><code>redis://redis:6379/0</code></td></tr>
+        <tr><td><code>TOP_K</code></td><td><code>5</code></td></tr>
+        <tr><td><code>QA_PAIRS_PER_FILE</code></td><td><code>8</code></td></tr>
+        <tr><td><code>EMBED_COST_PER_1K</code></td><td><code>0.00002</code></td></tr>
+        <tr><td><code>GROQ_INPUT_COST_PER_M</code></td><td><code>0.59</code></td></tr>
+        <tr><td><code>GROQ_OUTPUT_COST_PER_M</code></td><td><code>0.79</code></td></tr>
+        <tr><td><code>CORS_ORIGINS</code></td><td><code>http://localhost:3000</code></td></tr>
+        <tr><td><code>STORAGE_DIR</code></td><td><code>/app/data/uploads</code></td></tr>
+      </tbody>
+    </table>
+
+    <h4>Typical first run</h4>
+    <p>Create a project &rarr; upload a file &rarr; <strong>New run</strong> &rarr; add a few combinations (e.g. <code>sentence&middot;512/20</code>, <code>recursive&middot;512/64</code>, <code>semantic&middot;pct95</code>) &rarr; <strong>Launch</strong> &rarr; watch progress &rarr; explore analytics &rarr; ask the chatbot.</p>
+  </section>
+
+  <!-- 14. TESTING -->
+  <section id="testing">
+    <h2>14. Testing &amp; Verification</h2>
+    <ul>
+      <li><strong>Backend unit tests</strong> are pure logic and need no running services: <code>python -m pytest backend/tests -v</code>. They cover the deterministic core — chunking strategies, the expander, label generation, and the metric formulas.</li>
+      <li><strong>Lint</strong> with <code>ruff check backend/app backend/tests</code>.</li>
+      <li><strong>Frontend build</strong> as a typecheck/compile gate: <code>cd frontend &amp;&amp; npm run build</code>.</li>
+      <li><strong>End-to-end smoke</strong>: <code>docker compose up --build</code>, then seed and walk a run through the UI; SSE progress and the chat stream confirm the worker + pub/sub path.</li>
+      <li><strong>Health</strong>: <code>GET /health</code> backs the backend container healthcheck; postgres/redis have their own.</li>
+    </ul>
+    <div class="callout tip">
+      <p class="ctitle"><span class="ico">&#10003;</span> Determinism where it counts</p>
+      <p>
+        The judge runs at temperature 0 and the IR metrics are fully deterministic given a fixed QA set, so re-running a
+        combination over identical inputs yields stable, comparable scores.
+      </p>
+    </div>
+  </section>
+
+  <!-- 15. DECISIONS -->
+  <section id="decisions">
+    <h2>15. Architecture Decisions</h2>
+    <table>
+      <thead><tr><th>Decision</th><th>Rationale</th></tr></thead>
+      <tbody>
+        <tr><td>arq worker for all heavy work</td><td>Keeps API handlers fast; parsing/embedding/judging can take minutes. Redis already needed for pub/sub.</td></tr>
+        <tr><td>Two schemas (<code>core</code> / <code>results</code>)</td><td>Cleanly separates app state from experiment output; results can be reasoned about (and pruned) independently.</td></tr>
+        <tr><td>Startup bootstrap, no Alembic (v0.1)</td><td>Idempotent <code>init_db()</code> keeps early iteration simple; migrations can be introduced later without rework of models.</td></tr>
+        <tr><td>Local FastEmbed embeddings</td><td>Zero per-embedding cost and no external dependency for the most frequent operation; makes large matrices affordable.</td></tr>
+        <tr><td>Notional embedding cost</td><td>Free embeddings would otherwise be invisible in analytics; a notional rate keeps combinations dollar-comparable.</td></tr>
+        <tr><td>Real tokenizer for token counts</td><td>Honest counts that match what the embedder sees, so size/cost comparisons are trustworthy.</td></tr>
+        <tr><td>One shared QA set per run</td><td>Every combination is judged on identical questions and gold passages — the only way the comparison is fair.</td></tr>
+        <tr><td>Judge + computed IR metrics</td><td>Two complementary lenses (semantic quality vs. positional/overlap accuracy) reduce blind spots.</td></tr>
+        <tr><td>HNSW (m=16, ef_construction=64)</td><td>Fast approximate cosine search at small index-build cost; appropriate for interactive analytics.</td></tr>
+        <tr><td>SSE for progress, stream for chat</td><td>Native <code>EventSource</code> + Redis pub/sub is simple and robust; chat uses a plain token stream over <code>fetch</code>.</td></tr>
+        <tr><td>Shared backend/worker image + <code>hf_cache</code></td><td>Single build, single model download, consistent runtime across API and worker.</td></tr>
+        <tr><td>Registry pattern for strategies</td><td>Adding a strategy is one self-registering class; it auto-appears in runs with no wiring.</td></tr>
+        <tr><td>CPU-only torch in the image</td><td>Avoids docling dragging in multi-GB CUDA wheels; keeps the image lean for CPU deployment.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 16. ROADMAP -->
+  <section id="roadmap">
+    <h2>16. Roadmap / Future Work</h2>
+    <ul>
+      <li><strong>Alembic migrations</strong> to replace the v0.1 startup bootstrap once the schema stabilizes.</li>
+      <li><strong>Authentication &amp; multi-tenancy</strong> — replace the static <code>user_id</code> with real users and per-project access control.</li>
+      <li><strong>Pluggable embedding/LLM providers</strong> — let runs pick a hosted embedding model or a different judge model, with real per-provider pricing.</li>
+      <li><strong>More chunking strategies</strong> — markdown/heading-aware, layout-aware (docling structure), and parent-document / hierarchical chunking.</li>
+      <li><strong>Richer ground truth</strong> — multi-passage gold sets and graded relevance for fuller nDCG, beyond the single-gold simplification.</li>
+      <li><strong>Worker scaling</strong> — multiple arq workers and concurrency controls for large matrices.</li>
+      <li><strong>Run artifacts / export</strong> — downloadable reports (CSV/JSON) and shareable comparison links.</li>
+      <li><strong>Caching of embeddings</strong> across combinations where chunk text is identical, to cut redundant embedding work.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>chunklab — Implementation Reference &middot; v0.1. Generated for the chunklab monorepo
+    (<code>backend/</code> · <code>frontend/</code> · <code>infra/</code> · <code>docs/</code>).
+    Companion docs live in <code>docs/</code>: ARCHITECTURE, DATA_MODEL, CHUNKING, EVALUATION, API, SETUP, SECURITY, DECISIONS.</p>
+  </footer>
+
+  </div>
+  </main>
+</div>
+</body>
+</html>

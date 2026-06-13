@@ -1,0 +1,68 @@
+[project]
+name = "chunklab"
+version = "0.1.0"
+description = "A tool for evaluating and comparing text-chunking strategies for RAG pipelines"
+requires-python = ">=3.11"
+dependencies = [
+    # web
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart>=0.0.26",
+    "sse-starlette",
+    # llm + embeddings
+    "groq",
+    "fastembed>=0.4",
+    "transformers",
+    "tokenizers",
+    "tiktoken",
+    # chunking
+    "langchain",
+    "langchain-core",
+    "langchain-community",
+    "langchain-text-splitters",
+    "langchain-experimental",
+    "llama-index-core",
+    # parsing
+    "docling",
+    "pypdf",
+    # database + vectors
+    "sqlalchemy>=2",
+    "asyncpg",
+    "pgvector",
+    "alembic",
+    "greenlet>=3.4.0",
+    # jobs + cache
+    "arq",
+    "redis>=5",
+    # config / metrics
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "numpy",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "httpx",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["backend"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]

@@ -1,0 +1,31 @@
+# Backend image — shared by the API and the arq worker (different commands).
+FROM python:3.11-slim
+
+# uv = fast pip
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# System libs docling/pypdf may need at runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# 1) Install CPU-only torch first so docling doesn't pull the CUDA build (multi-GB).
+RUN uv pip install --system --no-cache \
+        torch --index-url https://download.pytorch.org/whl/cpu
+
+# 2) Install the rest of the dependencies.
+COPY backend/requirements.txt ./requirements.txt
+RUN uv pip install --system --no-cache -r requirements.txt
+
+# 3) App code. `app` is importable via PYTHONPATH (no packaging step needed).
+COPY backend/ /app/backend/
+ENV PYTHONPATH=/app/backend
+
+# Model cache lives here; mounted as a shared volume so backend+worker reuse it.
+ENV HF_HOME=/root/.cache/huggingface
+ENV FASTEMBED_CACHE_PATH=/root/.cache/fastembed
+
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--app-dir", "/app/backend"]

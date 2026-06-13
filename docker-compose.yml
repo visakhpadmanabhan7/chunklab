@@ -1,0 +1,98 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: chunklab_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-chunklab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chunklab}
+      POSTGRES_DB: ${POSTGRES_DB:-chunklab}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chunklab} -d ${POSTGRES_DB:-chunklab}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: chunklab_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: chunklab_backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chunklab}:${POSTGRES_PASSWORD:-chunklab}@postgres:5432/${POSTGRES_DB:-chunklab}
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_DIR: /app/data/uploads
+    volumes:
+      - uploads:/app/data/uploads
+      - hf_cache:/root/.cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: chunklab_worker
+    command: ["arq", "app.workers.settings.WorkerSettings"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chunklab}:${POSTGRES_PASSWORD:-chunklab}@postgres:5432/${POSTGRES_DB:-chunklab}
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_DIR: /app/data/uploads
+    volumes:
+      - uploads:/app/data/uploads
+      - hf_cache:/root/.cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    container_name: chunklab_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  hf_cache:
