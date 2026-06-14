@@ -35,9 +35,13 @@ next-env.d.ts
 # ===== Data / runtime =====
 *.db
 *.sqlite3
-backend/app/data/
+
+# ----- User-uploaded files are NEVER committed -----
+backend/app/data/        # local STORAGE_DIR (backend/app/data/uploads)
 uploads/
 storage/
+# (sample_docs/ IS tracked on purpose — those are demo inputs, not user uploads)
+!sample_docs/
 
 # ===== Docker volumes =====
 pgdata/

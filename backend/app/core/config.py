@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     # ---- Retrieval / evaluation ----
     TOP_K: int = 5
     QA_PAIRS_PER_FILE: int = 8
+    # cap total QA pairs per run so a run stays feasible on free LLM tiers
+    MAX_QA_PAIRS_PER_RUN: int = 10
 
     # ---- Cost model (notional embedding rate + real Groq token cost) ----
     EMBED_COST_PER_1K: float = 0.00002

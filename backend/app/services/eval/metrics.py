@@ -64,7 +64,9 @@ def compute_for_query(
             break
 
     dcg = sum((1.0 / math.log2(i + 2)) for i, flag in enumerate(flags) if flag)
-    idcg = 1.0  # one relevant item, ideally at rank 1 → 1/log2(2) = 1
+    # ideal DCG = all relevant hits ranked first (cap at k); guarantees nDCG <= 1
+    ideal_hits = min(num_relevant, denom)
+    idcg = sum(1.0 / math.log2(i + 2) for i in range(ideal_hits))
     ndcg = dcg / idcg if idcg else 0.0
 
     f2 = (5 * precision * recall) / (4 * precision + recall) if (precision + recall) else 0.0

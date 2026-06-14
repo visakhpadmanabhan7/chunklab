@@ -17,6 +17,7 @@ def _pk() -> Mapped[uuid.UUID]:
 
 class Project(CoreBase, TimestampMixin):
     __tablename__ = "projects"
+    __table_args__ = {"schema": "core"}
 
     id: Mapped[uuid.UUID] = _pk()
     user_id: Mapped[str] = mapped_column(String(128), default="anonymous", index=True)
@@ -36,6 +37,7 @@ class Project(CoreBase, TimestampMixin):
 
 class File(CoreBase, TimestampMixin):
     __tablename__ = "files"
+    __table_args__ = {"schema": "core"}
 
     id: Mapped[uuid.UUID] = _pk()
     project_id: Mapped[uuid.UUID] = mapped_column(
@@ -49,6 +51,8 @@ class File(CoreBase, TimestampMixin):
     status: Mapped[str] = mapped_column(String(32), default="uploaded", index=True)
     parser_used: Mapped[str | None] = mapped_column(String(32), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # user-chosen parsing options: {parser: docling|fast, ocr: bool, tables: bool}
+    parse_options: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     project: Mapped["Project"] = relationship(back_populates="files")
     parsed: Mapped["ParsedDocument | None"] = relationship(
@@ -58,6 +62,7 @@ class File(CoreBase, TimestampMixin):
 
 class ParsedDocument(CoreBase):
     __tablename__ = "parsed_documents"
+    __table_args__ = {"schema": "core"}
 
     id: Mapped[uuid.UUID] = _pk()
     file_id: Mapped[uuid.UUID] = mapped_column(
@@ -73,6 +78,7 @@ class ParsedDocument(CoreBase):
 
 class Run(CoreBase, TimestampMixin):
     __tablename__ = "runs"
+    __table_args__ = {"schema": "core"}
 
     id: Mapped[uuid.UUID] = _pk()
     project_id: Mapped[uuid.UUID] = mapped_column(
@@ -98,6 +104,7 @@ class Run(CoreBase, TimestampMixin):
 
 class RunCombination(CoreBase, TimestampMixin):
     __tablename__ = "run_combinations"
+    __table_args__ = {"schema": "core"}
 
     id: Mapped[uuid.UUID] = _pk()
     run_id: Mapped[uuid.UUID] = mapped_column(

@@ -8,7 +8,8 @@ aggregate stats + metrics. Progress is published throughout.
 import asyncio
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from pathlib import Path
 from statistics import fmean
 
 from sqlalchemy import select
@@ -47,7 +48,7 @@ async def _ensure_parsed(session, file: File) -> ParsedDocument:
     ).scalar_one_or_none()
     if existing:
         return existing
-    parsed = await asyncio.to_thread(parse_file, file.storage_path)
+    parsed = await asyncio.to_thread(parse_file, file.storage_path, file.parse_options or {})
     doc = ParsedDocument(
         file_id=file.id,
         clean_text=parsed.clean_text,
@@ -57,7 +58,15 @@ async def _ensure_parsed(session, file: File) -> ParsedDocument:
     session.add(doc)
     file.status = "parsed"
     file.parser_used = parsed.parser_used
+    # We do NOT retain the original upload — only the extracted text is kept
+    # (that's all chunking needs). Delete the raw file from disk after parsing.
+    try:
+        Path(file.storage_path).unlink(missing_ok=True)
+    except OSError:
+        pass
+    file.storage_path = ""
     await session.commit()
+    logger.info("parsed and discarded raw upload for file=%s (%s)", file.id, file.parser_used)
     return doc
 
 
@@ -85,7 +94,7 @@ async def run_pipeline(ctx, run_id: str) -> None:
             return
         try:
             run.status = "running"
-            run.started_at = datetime.now(timezone.utc)
+            run.started_at = datetime.utcnow()
             run.progress = 0.0
             await session.commit()
             await P.emit_run(run_id, "running", 0.0)
@@ -118,8 +127,12 @@ async def run_pipeline(ctx, run_id: str) -> None:
             # ---- generate the shared QA evaluation set (once per run) ----
             await P.emit_log(run_id, "Generating QA evaluation set")
             qa_records: list[tuple[QAPair, uuid.UUID, object]] = []
+            max_total = settings.MAX_QA_PAIRS_PER_RUN
             for f in files:
-                gen = await generate_qa_pairs(parsed_map[f.id].clean_text, settings.QA_PAIRS_PER_FILE)
+                if len(qa_records) >= max_total:
+                    break
+                want = min(settings.QA_PAIRS_PER_FILE, max_total - len(qa_records))
+                gen = await generate_qa_pairs(parsed_map[f.id].clean_text, want)
                 for g in gen:
                     qa = QAPair(
                         run_id=rid,
@@ -149,7 +162,7 @@ async def run_pipeline(ctx, run_id: str) -> None:
                 await P.emit_run(run_id, "running", pct)
 
             run.status = "completed"
-            run.completed_at = datetime.now(timezone.utc)
+            run.completed_at = datetime.utcnow()
             run.progress = 1.0
             await session.commit()
             await P.emit_run(run_id, "completed", 1.0)
@@ -220,6 +233,8 @@ async def _process_combination(
             chunk_count += 1
         await session.commit()
         await P.emit_file(run_id, str(combo.id), str(f.id), "embed", (fi + 1) / n_files, "completed")
+        # chunking/embedding occupies the first half of the combo's progress bar
+        await P.emit_combo(run_id, str(combo.id), combo.label, "chunking", 0.5 * (fi + 1) / n_files)
 
     # ---- evaluate: retrieve → judge → score, per QA pair ----
     combo.status = "evaluating"
@@ -231,7 +246,8 @@ async def _process_combination(
     judged: list[JudgeEvaluation] = []
     latencies: list[int] = []
 
-    for (qa, fid, g), qvec in zip(qa_records, q_vectors):
+    n_qa = max(len(qa_records), 1)
+    for qi, ((qa, fid, g), qvec) in enumerate(zip(qa_records, q_vectors)):
         t2 = time.perf_counter()
         retrieved = await retrieve(session, combo.id, qvec, top_k)
         lat = int((time.perf_counter() - t2) * 1000)
@@ -272,6 +288,8 @@ async def _process_combination(
             top_k,
         )
         per_query.append(qm)
+        # evaluation occupies the second half of the combo's progress bar
+        await P.emit_combo(run_id, str(combo.id), combo.label, "evaluating", 0.5 + 0.5 * (qi + 1) / n_qa)
 
     await session.commit()
 

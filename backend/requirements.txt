@@ -10,7 +10,7 @@ sse-starlette
 # llm + embeddings
 groq
 fastembed>=0.4
-transformers
+transformers>=4.46,<5   # docling 2.x needs the transformers 4.x API (5.x breaks it)
 tokenizers
 tiktoken
 
@@ -36,6 +36,9 @@ greenlet>=3.4.0
 # jobs + cache
 arq
 redis>=5
+
+# rate limiting
+slowapi
 
 # config / metrics
 pydantic

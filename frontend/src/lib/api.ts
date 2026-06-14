@@ -2,6 +2,8 @@ import type {
   Combination,
   FileItem,
   Project,
+  ProjectAnalytics,
+  QAPair,
   Run,
   RunResults,
   TradeoffPoint,
@@ -42,15 +44,42 @@ export const deleteProject = (id: string) =>
 export const listFiles = (projectId: string) =>
   req<FileItem[]>(`/projects/${projectId}/files`);
 export const deleteFile = (id: string) => req<void>(`/files/${id}`, { method: "DELETE" });
-export async function uploadFile(projectId: string, file: File): Promise<FileItem> {
-  const form = new FormData();
-  form.append("upload", file);
-  const res = await fetch(`${V1}/projects/${projectId}/files`, {
-    method: "POST",
-    body: form,
+export interface ParseOptions {
+  parser: "docling" | "fast";
+  ocr: boolean;
+  tables: boolean;
+}
+
+export function uploadFile(
+  projectId: string,
+  file: File,
+  onProgress?: (pct: number) => void,
+  options?: ParseOptions,
+): Promise<FileItem> {
+  // XHR (not fetch) so we get real upload-progress events.
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${V1}/projects/${projectId}/files`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(1);
+        resolve(JSON.parse(xhr.responseText));
+      } else {
+        reject(new Error(`Upload failed (${xhr.status})`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Upload failed"));
+    const form = new FormData();
+    form.append("upload", file);
+    const o = options ?? { parser: "docling", ocr: true, tables: true };
+    form.append("parser", o.parser);
+    form.append("ocr", String(o.ocr));
+    form.append("tables", String(o.tables));
+    xhr.send(form);
   });
-  if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-  return res.json();
 }
 
 // ---- runs ----
@@ -69,11 +98,16 @@ export const getCombinations = (id: string) =>
   req<Combination[]>(`/runs/${id}/combinations`);
 export const cancelRun = (id: string) =>
   req<Run>(`/runs/${id}/cancel`, { method: "POST" });
+export const deleteRun = (id: string) =>
+  req<void>(`/runs/${id}`, { method: "DELETE" });
 
 // ---- results / analytics ----
 export const getResults = (runId: string) => req<RunResults>(`/runs/${runId}/results`);
+export const getQAPairs = (runId: string) => req<QAPair[]>(`/runs/${runId}/qa-pairs`);
 export const getTradeoff = (runId: string) =>
   req<{ run_id: string; points: TradeoffPoint[] }>(`/runs/${runId}/analytics/tradeoff`);
+export const getProjectAnalytics = (projectId: string) =>
+  req<ProjectAnalytics>(`/projects/${projectId}/analytics/runs`);
 export const getProgressSnapshot = (runId: string) =>
   req<{ run_id: string; status: string; progress: number; events: unknown[] }>(
     `/runs/${runId}/progress`,

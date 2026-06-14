@@ -1,24 +1,32 @@
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi import File as UploadField
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_arq, get_session
 from app.core.config import get_settings
+from app.core.logging import get_logger
+from app.core.ratelimit import limiter
 from app.db.models_core import File, ParsedDocument, Project
 from app.schemas.file import FileOut, ParsedDocumentOut
 
 router = APIRouter(tags=["files"])
 settings = get_settings()
+logger = get_logger(__name__)
 
 
 @router.post("/projects/{project_id}/files", response_model=FileOut, status_code=201)
+@limiter.limit("120/minute")
 async def upload_file(
+    request: Request,
     project_id: uuid.UUID,
     upload: UploadFile = UploadField(...),
+    parser: str = Form("docling"),
+    ocr: bool = Form(True),
+    tables: bool = Form(True),
     session: AsyncSession = Depends(get_session),
     arq=Depends(get_arq),
 ):
@@ -41,12 +49,14 @@ async def upload_file(
         mime_type=upload.content_type,
         size_bytes=len(data),
         status="uploaded",
+        parse_options={"parser": parser, "ocr": ocr, "tables": tables},
     )
     session.add(file)
     await session.commit()
     await session.refresh(file)
 
     await arq.enqueue_job("parse_file_task", str(file.id))
+    logger.info("file uploaded id=%s name=%r size=%d", file.id, file.filename, len(data))
     return FileOut.model_validate(file)
 
 

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>NimbusSync — Product Specification</title></head>
+<body>
+  <h1>NimbusSync — Product Specification</h1>
+  <p>NimbusSync is a file-synchronization service that keeps a folder consistent
+  across many devices with end-to-end encryption and conflict-free merging.</p>
+
+  <h2>Goals</h2>
+  <ul>
+    <li>Sub-second propagation of changes on a local network.</li>
+    <li>End-to-end encryption; the server never sees plaintext.</li>
+    <li>Deterministic conflict resolution with no data loss.</li>
+  </ul>
+
+  <h2>Non-goals</h2>
+  <ul>
+    <li>Real-time collaborative editing of a single document.</li>
+    <li>Version control semantics (branches, merges by hand).</li>
+  </ul>
+
+  <h2>Tiers</h2>
+  <table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+      <tr><th>Tier</th><th>Storage</th><th>Devices</th><th>Price / month</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Free</td><td>5 GB</td><td>2</td><td>$0</td></tr>
+      <tr><td>Plus</td><td>200 GB</td><td>10</td><td>$6</td></tr>
+      <tr><td>Pro</td><td>2 TB</td><td>Unlimited</td><td>$12</td></tr>
+      <tr><td>Team</td><td>5 TB / user</td><td>Unlimited</td><td>$18 / user</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Architecture</h2>
+  <p>Each client maintains a Merkle tree of the synced folder. On change, the
+  client diffs the tree, encrypts the changed blocks, and uploads them. Peers
+  pull the manifest, fetch missing blocks, and apply them atomically. Conflicts
+  are resolved by a last-writer-wins rule on a per-block basis, with the losing
+  version preserved as a side file.</p>
+
+  <h2>Security</h2>
+  <p>Keys are derived from the user's passphrase with Argon2id. Block contents are
+  encrypted with XChaCha20-Poly1305. The server stores only ciphertext and
+  manifests and cannot read file names or contents.</p>
+</body>
+</html>

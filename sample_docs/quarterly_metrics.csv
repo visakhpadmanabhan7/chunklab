@@ -1,0 +1,20 @@
+quarter,region,product,units_sold,revenue_usd,gross_margin_pct,churn_pct
+2024-Q1,North America,Free,18230,0,0,4.1
+2024-Q1,North America,Plus,4120,24720,72.4,2.8
+2024-Q1,North America,Pro,1890,22680,78.1,1.9
+2024-Q1,Europe,Plus,3110,18660,71.0,3.2
+2024-Q1,Europe,Pro,1240,14880,77.3,2.1
+2024-Q1,APAC,Plus,2050,12300,69.8,3.9
+2024-Q2,North America,Plus,4560,27360,73.1,2.6
+2024-Q2,North America,Pro,2210,26520,79.0,1.7
+2024-Q2,Europe,Plus,3480,20880,71.6,3.0
+2024-Q2,Europe,Pro,1390,16680,77.9,2.0
+2024-Q2,APAC,Pro,860,10320,76.4,2.7
+2024-Q3,North America,Plus,4980,29880,73.5,2.4
+2024-Q3,North America,Team,540,9720,81.2,1.2
+2024-Q3,Europe,Plus,3720,22320,72.0,2.9
+2024-Q3,APAC,Plus,2680,16080,70.5,3.5
+2024-Q4,North America,Pro,2640,31680,79.8,1.5
+2024-Q4,North America,Team,720,12960,82.0,1.0
+2024-Q4,Europe,Team,410,7380,80.4,1.4
+2024-Q4,APAC,Pro,1130,13560,77.1,2.3

@@ -19,6 +19,7 @@ def _pk() -> Mapped[uuid.UUID]:
 
 class Chunk(ResultsBase, TimestampMixin):
     __tablename__ = "chunks"
+    __table_args__ = {"schema": "results"}
 
     id: Mapped[uuid.UUID] = _pk()
     combination_id: Mapped[uuid.UUID] = mapped_column(
@@ -36,6 +37,7 @@ class Chunk(ResultsBase, TimestampMixin):
 
 class CombinationStats(ResultsBase, TimestampMixin):
     __tablename__ = "combination_stats"
+    __table_args__ = {"schema": "results"}
 
     id: Mapped[uuid.UUID] = _pk()
     combination_id: Mapped[uuid.UUID] = mapped_column(
@@ -56,6 +58,7 @@ class CombinationStats(ResultsBase, TimestampMixin):
 
 class QAPair(ResultsBase, TimestampMixin):
     __tablename__ = "qa_pairs"
+    __table_args__ = {"schema": "results"}
 
     id: Mapped[uuid.UUID] = _pk()
     run_id: Mapped[uuid.UUID] = mapped_column(
@@ -73,6 +76,7 @@ class QAPair(ResultsBase, TimestampMixin):
 
 class Retrieval(ResultsBase, TimestampMixin):
     __tablename__ = "retrievals"
+    __table_args__ = {"schema": "results"}
 
     id: Mapped[uuid.UUID] = _pk()
     combination_id: Mapped[uuid.UUID] = mapped_column(
@@ -90,6 +94,7 @@ class Retrieval(ResultsBase, TimestampMixin):
 
 class JudgeEvaluation(ResultsBase, TimestampMixin):
     __tablename__ = "judge_evaluations"
+    __table_args__ = {"schema": "results"}
 
     id: Mapped[uuid.UUID] = _pk()
     retrieval_id: Mapped[uuid.UUID] = mapped_column(
@@ -109,6 +114,7 @@ class JudgeEvaluation(ResultsBase, TimestampMixin):
 
 class Metrics(ResultsBase, TimestampMixin):
     __tablename__ = "metrics"
+    __table_args__ = {"schema": "results"}
 
     id: Mapped[uuid.UUID] = _pk()
     combination_id: Mapped[uuid.UUID] = mapped_column(

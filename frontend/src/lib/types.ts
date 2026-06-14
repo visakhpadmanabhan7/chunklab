@@ -81,6 +81,13 @@ export interface RunResults {
   combinations: ReportRow[];
 }
 
+export interface QAPair {
+  id: string;
+  file_id: string;
+  question: string;
+  reference_answer: string;
+}
+
 export interface TradeoffPoint {
   label: string;
   strategy: string;
@@ -88,6 +95,22 @@ export interface TradeoffPoint {
   accuracy: number;
   latency_ms: number;
   tokens: number;
+}
+
+export interface RunSummary {
+  run_id: string;
+  name: string;
+  status: string;
+  combinations: number;
+  best_label: string | null;
+  best_ndcg: number;
+  total_cost_usd: number;
+  total_tokens: number;
+}
+
+export interface ProjectAnalytics {
+  project_id: string;
+  runs: RunSummary[];
 }
 
 export type ProgressEvent =

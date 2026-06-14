@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>chunklab — Product, Architecture, Schema &amp; Operations</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121722; --panel2:#161c2a; --border:#243049;
+    --text:#dde3ee; --muted:#94a0b8; --accent:#7c8cff; --accent2:#39d0a8;
+    --amber:#f6c177; --rose:#f7768e; --sky:#56b6ff;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:radial-gradient(1100px 600px at 100% -8%,rgba(124,140,255,.12),transparent 55%),var(--bg);color:var(--text);font-family:var(--sans);line-height:1.65}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{display:grid;grid-template-columns:250px 1fr;max-width:1320px;margin:0 auto}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:28px 18px;border-right:1px solid var(--border)}
+  nav.toc .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px}
+  nav.toc .brand .flask{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#7c8cff,#56b6ff);display:flex;align-items:center;justify-content:center}
+  nav.toc .tag{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.12em;margin:6px 0 16px}
+  nav.toc .sec{color:#6b7689;font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin:16px 0 4px;padding-left:10px}
+  nav.toc a{display:block;color:var(--muted);font-size:13px;padding:5px 10px;border-radius:8px}
+  nav.toc a:hover{background:var(--panel);color:var(--text);text-decoration:none}
+  main{padding:42px 52px 140px;min-width:0}
+  h1{font-size:36px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:23px;margin:50px 0 14px;letter-spacing:-.01em;border-top:1px solid var(--border);padding-top:26px}
+  h2:first-of-type{border:0}
+  h3{font-size:16px;margin:24px 0 8px;color:#cfd7e6}
+  .lead{color:var(--muted);font-size:17px;max-width:72ch}
+  .grad{background:linear-gradient(90deg,#7c8cff,#56b6ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin:14px 0}
+  .grid{display:grid;gap:14px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:920px){.wrap{grid-template-columns:1fr}nav.toc{display:none}.g2,.g3,.g4{grid-template-columns:1fr}main{padding:28px 22px}}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--border);border-radius:999px;padding:3px 11px;font-size:12px;color:var(--muted);margin:3px 4px 3px 0}
+  code,kbd{font-family:var(--mono);font-size:12.5px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:#cdd6f4}
+  pre{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px;overflow:auto;font-family:var(--mono);font-size:12.5px;color:#c7d0e2;line-height:1.5}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+  .callout{border-radius:12px;padding:14px 16px;margin:14px 0;border:1px solid}
+  .c-accent{background:rgba(124,140,255,.08);border-color:rgba(124,140,255,.35)}
+  .c-amber{background:rgba(246,193,119,.08);border-color:rgba(246,193,119,.35)}
+  .c-green{background:rgba(57,208,168,.08);border-color:rgba(57,208,168,.35)}
+  .c-rose{background:rgba(247,118,142,.08);border-color:rgba(247,118,142,.35)}
+  .label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .kpi{font-size:24px;font-weight:800}.muted{color:var(--muted)}
+  .schema-table{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:12px 0}
+  .schema-table .head{padding:10px 14px;font-family:var(--mono);font-weight:700;font-size:13px;border-bottom:1px solid var(--border)}
+  .core .head{color:#7c8cff;background:rgba(124,140,255,.07)} .results .head{color:#39d0a8;background:rgba(57,208,168,.07)}
+  .schema-table table{margin:0}
+  .fk{color:var(--sky)}.pk{color:var(--amber)}
+  .flow{font-family:var(--mono);font-size:12.5px;color:#c7d0e2;white-space:pre;overflow:auto}
+  .step{display:flex;gap:14px;margin:10px 0}
+  .step .n{flex:none;width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#7c8cff,#56b6ff);color:#0b0e14;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px}
+  .step .b{color:var(--muted)} .step .b b{color:var(--text)}
+  .lvl{display:inline-block;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700;font-family:var(--mono)}
+  .lvl.debug{background:#2b3344;color:#94a0b8}.lvl.info{background:#26305a;color:#9db0ff}
+  .lvl.warn{background:#3a3320;color:#f6c177}.lvl.error{background:#3a2230;color:#f7768e}
+  .tour{counter-reset:t;list-style:none;padding:0}
+  .tour li{position:relative;padding:14px 16px 14px 56px;background:var(--panel);border:1px solid var(--border);border-radius:12px;margin:10px 0}
+  .tour li::before{counter-increment:t;content:counter(t);position:absolute;left:16px;top:14px;width:26px;height:26px;border-radius:8px;background:var(--panel2);border:1px solid var(--border);color:var(--accent);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px}
+  .tour li b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="toc">
+  <div class="brand"><span class="flask">🧪</span> chunklab</div>
+  <div class="tag">implementation map</div>
+  <div class="sec">Understand</div>
+  <a href="#what">What it is</a>
+  <a href="#tour">Learn it one-by-one</a>
+  <a href="#how">Run lifecycle</a>
+  <div class="sec">Build</div>
+  <a href="#arch">Architecture</a>
+  <a href="#store">Where data lives</a>
+  <a href="#schema">Database schema</a>
+  <a href="#er">How tables connect</a>
+  <a href="#chunking">Chunking strategies</a>
+  <a href="#eval">Evaluation</a>
+  <a href="#cost">Cost model</a>
+  <div class="sec">Operate</div>
+  <a href="#logging">Observability &amp; logging</a>
+  <a href="#ratelimit">Rate limiting</a>
+  <a href="#run">Run &amp; reset</a>
+  <a href="#stack">Stack &amp; ports</a>
+</nav>
+
+<main>
+  <h1>chunklab <span class="grad">— the whole product, explained</span></h1>
+  <p class="lead">A full-stack tool to <b>evaluate and compare text-chunking strategies for RAG</b>. This is the single reference: what it does, how the services connect, exactly where every byte is stored, the complete database schema, and how it's operated (logging, rate limiting, reset).</p>
+  <div style="margin-top:10px">
+    <span class="pill">FastAPI</span><span class="pill">arq worker</span><span class="pill">Postgres + pgvector</span><span class="pill">Redis</span><span class="pill">Next.js 15</span><span class="pill">FastEmbed bge-small (384-d)</span><span class="pill">Groq llama-3.3-70b</span><span class="pill">docling</span><span class="pill">slowapi</span>
+  </div>
+
+  <h2 id="what">1 · What it is</h2>
+  <p>You create a <b>project</b>, upload <b>documents</b>, then launch a <b>run</b> — a matrix of chunking strategies (sentence, character, recursive, token, semantic, each with size/overlap parameters). For every combination chunklab parses each file, chunks it, embeds the chunks, counts tokens, estimates cost, stores vectors in pgvector, then scores <b>retrieval accuracy</b> with an LLM-as-judge over auto-generated QA pairs. Results feed charts, a comparison table, project-level analytics, and a RAG chatbot.</p>
+  <div class="grid g4">
+    <div class="card"><div class="label">Strategies</div><div class="kpi">5</div><div class="muted" style="font-size:13px">× parameter grid</div></div>
+    <div class="card"><div class="label">Embedding dim</div><div class="kpi">384</div><div class="muted" style="font-size:13px">bge-small, cosine/HNSW</div></div>
+    <div class="card"><div class="label">Metrics</div><div class="kpi">9</div><div class="muted" style="font-size:13px">judged + computed IR</div></div>
+    <div class="card"><div class="label">DB schemas</div><div class="kpi">2</div><div class="muted" style="font-size:13px">core · results</div></div>
+  </div>
+
+  <!-- TOUR -->
+  <h2 id="tour">2 · Learn it one-by-one</h2>
+  <p class="muted">A guided path through the codebase — read these in order to understand the whole system.</p>
+  <ol class="tour">
+    <li><b>Config &amp; clients</b> — <code>app/core/config.py</code> (all settings), <code>core/llm.py</code> (Groq), <code>core/embedding.py</code> (FastEmbed + tokenizer), <code>core/redis.py</code>, <code>core/pricing.py</code>, <code>core/ratelimit.py</code>, <code>core/logging.py</code>. Everything else reads config through <code>get_settings()</code>.</li>
+    <li><b>Data model</b> — <code>app/db/base.py</code> (one MetaData, two schemas), <code>models_core.py</code>, <code>models_results.py</code>, <code>setup_db.py</code> (idempotent bootstrap). See §6.</li>
+    <li><b>Parsing</b> — <code>app/services/parsing/</code>: docling primary, pypdf/text fallback.</li>
+    <li><b>Chunking</b> — <code>app/services/chunking/</code>: a registry + 5 strategies + the expander. See §8.</li>
+    <li><b>Evaluation</b> — <code>app/services/eval/</code>: qa_generator → retriever → judge → metrics. See §9.</li>
+    <li><b>The worker</b> — <code>app/workers/run_pipeline.py</code> ties it together; <code>progress.py</code> publishes live updates. See §3.</li>
+    <li><b>API</b> — <code>app/api/routers/</code> (projects, files, runs, progress, results, analytics, chat, logs) + <code>main.py</code> (middleware, rate limits). See §11–12.</li>
+    <li><b>Frontend</b> — <code>frontend/src/app/</code> pages + <code>lib/api.ts</code>, <code>lib/strategies.ts</code>, <code>lib/logger.ts</code>, <code>hooks/useRunProgress.ts</code>.</li>
+  </ol>
+
+  <!-- LIFECYCLE -->
+  <h2 id="how">3 · How a run works (lifecycle)</h2>
+  <div class="step"><div class="n">1</div><div class="b"><b>Upload</b> — the API saves the raw file to disk and enqueues a parse job.</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>Parse</b> — the worker runs <b>docling</b> (fallback: pypdf / plain text) → clean text in <code>core.parsed_documents</code>.</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>Expand</b> — combination specs expand into one <code>core.run_combinations</code> row per (strategy × params) cell.</div></div>
+  <div class="step"><div class="n">4</div><div class="b"><b>QA set</b> — Groq generates grounded Q/A pairs from each document <em>once per run</em> (shared for a fair comparison).</div></div>
+  <div class="step"><div class="n">5</div><div class="b"><b>Chunk → embed → store</b> — per combination &amp; file: split, count tokens, embed (bge-small), bulk-insert chunks + 384-d vectors into <code>results.chunks</code>.</div></div>
+  <div class="step"><div class="n">6</div><div class="b"><b>Retrieve → judge → score</b> — per QA pair: pgvector top-k → Groq judge + computed IR metrics.</div></div>
+  <div class="step"><div class="n">7</div><div class="b"><b>Aggregate</b> — <code>results.combination_stats</code> (tokens/cost/latency) + <code>results.metrics</code> (macro-averaged scores).</div></div>
+  <div class="step"><div class="n">8</div><div class="b"><b>Explore</b> — dashboards, run compare, project analytics, and the RAG chatbot read these tables.</div></div>
+  <p class="muted" style="font-size:13px">Progress streams to the browser over SSE, backed by Redis pub/sub (<code>run:{id}:progress</code>) + a snapshot hash (<code>run:{id}:state</code>), and is denormalized onto the DB rows.</p>
+
+  <!-- ARCHITECTURE -->
+  <h2 id="arch">4 · Architecture &amp; how things connect</h2>
+  <div class="card"><pre class="flow">
+            HTTP / SSE                         enqueue job
+ ┌──────────────┐  ──────────►  ┌──────────────┐  ─────────►  ┌──────────────┐
+ │  Next.js 15  │               │   FastAPI    │              │    Redis     │
+ │  (frontend)  │  ◄──────────  │   (API)      │  ◄─────────  │  (arq queue) │
+ │  :3000       │  SSE / JSON   │   :8000      │   progress   │  :6379       │
+ └──────────────┘               └──────┬───────┘              └──────┬───────┘
+       │ logs (POST /logs)              │ SQL                        │ pulls job
+       ▼                                ▼                            ▼
+  backend log stream            ┌─────────────────┐         ┌──────────────┐
+  (access · ui · app)           │ Postgres +      │  ◄────── │  arq worker  │
+                                │ pgvector :5432  │   SQL    │ parse·chunk· │
+                                │ core / results  │          │ embed·judge  │
+                                └─────────────────┘          └──────┬───────┘
+                                                                    ▼
+                                                   Groq (LLM judge + chat) · FastEmbed · docling
+  </pre></div>
+  <div class="grid g2">
+    <div class="card"><h3 style="margin-top:0">Why a separate worker?</h3><p class="muted" style="font-size:14px">Parsing, embedding and dozens of Groq calls are slow. The API enqueues one <code>run_pipeline</code> job; the <b>arq</b> worker (same image, command <code>arq app.workers.settings.WorkerSettings</code>) does the heavy lifting and streams progress.</p></div>
+    <div class="card"><h3 style="margin-top:0">Why pgvector?</h3><p class="muted" style="font-size:14px">Chunks, embeddings and results live in one Postgres — transactional, joinable. Vectors use an <b>HNSW</b> cosine index; each retrieval is filtered to a single combination's chunks.</p></div>
+  </div>
+
+  <!-- STORAGE -->
+  <h2 id="store">5 · Where every piece of data lives</h2>
+  <div class="callout c-amber"><b>“Do we just save chunks?”</b> — No. chunklab persists <b>four</b> things: the original file (disk), the parsed clean text, the chunks + embeddings, and all evaluation output.</div>
+  <table>
+    <thead><tr><th>What</th><th>Where</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><b>Original uploaded file</b></td><td>Disk only <em>transiently</em> — written to <code>/app/data/uploads/…</code>, then <b>deleted right after parsing</b></td><td>not retained; <code>storage_path</code> is cleared once parsed</td></tr>
+      <tr><td><b>Parsed clean text</b></td><td><code>core.parsed_documents.clean_text</code></td><td>the only persisted copy of the content — source text for all strategies</td></tr>
+      <tr><td><b>Chunks + 384-d embeddings</b></td><td><code>results.chunks</code> (pgvector)</td><td>one row per chunk per combination</td></tr>
+      <tr><td><b>QA eval set</b></td><td><code>results.qa_pairs</code></td><td>Groq-generated, gold passage + offsets</td></tr>
+      <tr><td><b>Retrievals &amp; judgments</b></td><td><code>results.retrievals</code>, <code>results.judge_evaluations</code></td><td>top-k + judge scores</td></tr>
+      <tr><td><b>Aggregates</b></td><td><code>results.combination_stats</code>, <code>results.metrics</code></td><td>what the dashboard reads</td></tr>
+      <tr><td><b>Live progress</b></td><td>Redis</td><td>ephemeral; mirrored onto DB rows</td></tr>
+      <tr><td><b>Model cache</b></td><td>volume <code>hf_cache</code> at <code>/root/.cache</code></td><td>FastEmbed + docling, shared by backend &amp; worker</td></tr>
+    </tbody>
+  </table>
+
+  <!-- SCHEMA -->
+  <h2 id="schema">6 · Database schema</h2>
+  <p>One database, <b>two schemas</b>: <code style="color:#7c8cff">core</code> (app data) and <code style="color:#39d0a8">results</code> (experiment output). A single SQLAlchemy <code>MetaData</code> holds both so cross-schema FKs resolve; <code>init_db()</code> creates the <code>vector</code> extension, schemas, tables &amp; HNSW index idempotently. <span class="muted">(<code class="pk">PK</code>, <code class="fk">FK</code>.)</span></p>
+
+  <h3 style="color:#7c8cff">core — application data</h3>
+  <div class="schema-table core"><div class="head">core.projects</div><table>
+    <tr><td><code class="pk">id</code> uuid · <code>user_id</code> · <code>name</code> · <code>description</code> · <code>created_at</code> · <code>updated_at</code></td></tr></table></div>
+  <div class="schema-table core"><div class="head">core.files</div><table>
+    <tr><td><code class="pk">id</code> · <code class="fk">project_id</code>→projects (CASCADE) · <code>filename</code> · <code>storage_path</code> · <code>mime_type</code> · <code>size_bytes</code> · <code>status</code> · <code>parser_used</code> · <code>error</code></td></tr></table></div>
+  <div class="schema-table core"><div class="head">core.parsed_documents</div><table>
+    <tr><td><code class="pk">id</code> · <code class="fk">file_id</code>→files (unique) · <code>clean_text</code> · <code>char_count</code> · <code>page_count</code></td></tr></table></div>
+  <div class="schema-table core"><div class="head">core.runs</div><table>
+    <tr><td><code class="pk">id</code> · <code class="fk">project_id</code>→projects · <code>name</code> · <code>config</code> jsonb · <code>embedding_model</code> · <code>top_k</code> · <code>status</code> · <code>progress</code> · <code>total_combinations</code> · <code>started_at</code> · <code>completed_at</code> · <code>error</code></td></tr></table></div>
+  <div class="schema-table core"><div class="head">core.run_combinations</div><table>
+    <tr><td><code class="pk">id</code> · <code class="fk">run_id</code>→runs · <code>strategy</code> · <code>params</code> jsonb · <code>label</code> · <code>status</code> · <code>progress</code></td></tr></table></div>
+
+  <h3 style="color:#39d0a8">results — experiment output</h3>
+  <div class="schema-table results"><div class="head">results.chunks</div><table>
+    <tr><td><code class="pk">id</code> · <code class="fk">combination_id</code>→run_combinations · <code class="fk">file_id</code>→files · <code>chunk_index</code> · <code>content</code> · <code>token_count</code> · <code>char_count</code> · <code>embedding</code> <b>vector(384)</b> [HNSW cosine]</td></tr></table></div>
+  <div class="schema-table results"><div class="head">results.qa_pairs</div><table>
+    <tr><td><code class="pk">id</code> · <code class="fk">run_id</code>→runs · <code class="fk">file_id</code>→files · <code>question</code> · <code>reference_answer</code> · <code>source_chunk_text</code> · <code>source_offset_start/end</code></td></tr></table></div>
+  <div class="schema-table results"><div class="head">results.retrievals</div><table>
+    <tr><td><code class="pk">id</code> · <code class="fk">combination_id</code>→run_combinations · <code class="fk">qa_pair_id</code>→qa_pairs · <code>retrieved_chunk_ids</code> uuid[] · <code>scores</code> float[] · <code>latency_ms</code></td></tr></table></div>
+  <div class="schema-table results"><div class="head">results.judge_evaluations</div><table>
+    <tr><td><code class="pk">id</code> · <code class="fk">retrieval_id</code>→retrievals (unique) · <code>relevance</code> · <code>faithfulness</code> · <code>context_precision</code> · <code>context_recall</code> · <code>judge_feedback</code> · <code>judge_model</code> · <code>judge_tokens_in/out</code></td></tr></table></div>
+  <div class="schema-table results"><div class="head">results.combination_stats (unique per combination)</div><table>
+    <tr><td><code>chunk_count</code> · <code>total_tokens</code> · <code>avg_tokens_per_chunk</code> · <code>embedding_cost_usd</code> · <code>judge_cost_usd</code> · <code>total_cost_usd</code> · <code>*_latency_ms</code></td></tr></table></div>
+  <div class="schema-table results"><div class="head">results.metrics (unique per combination — dashboard source)</div><table>
+    <tr><td><code>relevance</code> · <code>faithfulness</code> · <code>context_precision</code> · <code>context_recall</code> · <code>precision_at_k</code> · <code>recall_at_k</code> · <code>mrr</code> · <code>ndcg_at_k</code> · <code>f2</code> · <code>avg_retrieval_latency_ms</code></td></tr></table></div>
+
+  <!-- ER -->
+  <h2 id="er">7 · How the tables connect</h2>
+  <div class="card"><pre class="flow">
+  core.projects ─┬─< core.files ──< core.parsed_documents
+                 │        │
+                 │        └───────────────< results.chunks >─────┐
+                 │                                               │
+                 └─< core.runs ─< core.run_combinations >────────┤
+                          │                │                     │
+                          │                ├─< results.combination_stats
+                          │                ├─< results.metrics
+                          │                └─< results.retrievals ─< results.judge_evaluations
+                          │                         │
+                          └─< results.qa_pairs >────┘
+   ( A ─< B = one A has many B ;  ">" marks the FK side )
+  </pre></div>
+  <p class="muted" style="font-size:13px">Deleting a project cascades through files, runs, combinations and every <code>results.*</code> row; the disk files are removed by the API on delete.</p>
+
+  <!-- CHUNKING -->
+  <h2 id="chunking">8 · Chunking strategies</h2>
+  <table>
+    <thead><tr><th>Strategy</th><th>Library</th><th>Parameters</th><th>Label</th></tr></thead>
+    <tbody>
+      <tr><td>sentence</td><td>llama-index SentenceSplitter</td><td><code>size</code> (tokens), <code>overlap</code></td><td><code>sentence·512/20</code></td></tr>
+      <tr><td>character</td><td>fixed-size (built-in)</td><td><code>size</code> (chars), <code>overlap</code></td><td><code>character·1000/100</code></td></tr>
+      <tr><td>recursive</td><td>langchain RecursiveCharacterTextSplitter</td><td><code>chunk_size</code>, <code>overlap</code></td><td><code>recursive·512/64</code></td></tr>
+      <tr><td>token</td><td>bge tokenizer windows</td><td><code>size</code> (tokens), <code>overlap</code></td><td><code>token·256/0</code></td></tr>
+      <tr><td>semantic</td><td>sentence-embedding breakpoints</td><td><code>breakpoint_percentile</code></td><td><code>semantic·pct95</code></td></tr>
+    </tbody>
+  </table>
+  <p class="muted" style="font-size:13px">Add a strategy: a class with <code>split()</code>+<code>label()</code> calling <code>register()</code> in <code>services/chunking/</code>, plus a matching entry in <code>frontend/src/lib/strategies.ts</code>.</p>
+
+  <!-- EVAL -->
+  <h2 id="eval">9 · Evaluation</h2>
+  <div class="grid g2">
+    <div class="card"><h3 style="margin-top:0">LLM-as-judge (Groq, temp 0)</h3><p class="muted" style="font-size:14px">Per question + retrieved context, scored 0–1:</p><p><span class="pill">relevance</span><span class="pill">faithfulness</span><span class="pill">context_precision</span><span class="pill">context_recall</span></p></div>
+    <div class="card"><h3 style="margin-top:0">Computed IR metrics</h3><p class="muted" style="font-size:14px">A retrieved chunk is relevant if it shares the same file and ≥50% word overlap with the gold passage.</p>
+    <pre style="margin:8px 0 0">P@k   = relevant_in_topk / k
+recall= 1 if any relevant else 0
+MRR   = 1 / rank(first relevant)
+nDCG  = DCG / IDCG          (≤ 1)
+F2    = 5PR / (4P + R)</pre></div>
+  </div>
+
+  <!-- COST -->
+  <h2 id="cost">10 · Cost model</h2>
+  <div class="callout c-accent">Local embeddings are free, so embedding cost is a <b>notional</b> reference rate (configurable) that makes combinations dollar-comparable. Groq judge cost is <b>real</b>, from token usage.</div>
+  <pre>embedding_cost = total_tokens / 1000 * EMBED_COST_PER_1K        # notional
+judge_cost     = in_tok/1e6 * GROQ_INPUT_COST_PER_M + out_tok/1e6 * GROQ_OUTPUT_COST_PER_M
+total_cost     = embedding_cost + judge_cost</pre>
+
+  <!-- LOGGING -->
+  <h2 id="logging">11 · Observability &amp; logging</h2>
+  <p>Three log streams flow into the backend's stdout (<code>docker compose logs backend</code> / <code>worker</code>), each tagged and levelled:</p>
+  <table>
+    <thead><tr><th>Logger</th><th>What</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><code>access</code></td><td>every HTTP request (middleware in <code>main.py</code>)</td><td><code>access | GET /api/v1/projects -&gt; 200 (147ms)</code></td></tr>
+      <tr><td><code>client</code></td><td>UI actions/errors POSTed from the browser to <code>/api/v1/logs</code></td><td><code>client | [ui 172.21.0.1] run.launched @ /projects/.../runs/new</code></td></tr>
+      <tr><td><code>app</code> / module</td><td>domain events (file uploaded, run created, worker stages)</td><td><code>app.api.routers.runs | run created id=… combos=3</code></td></tr>
+    </tbody>
+  </table>
+  <h3>Levels &amp; routing</h3>
+  <p>
+    <span class="lvl debug">DEBUG</span> verbose dev detail &nbsp;
+    <span class="lvl info">INFO</span> normal actions &amp; 2xx/3xx requests &nbsp;
+    <span class="lvl warn">WARN</span> 4xx requests, deletes, recoverable issues &nbsp;
+    <span class="lvl error">ERROR</span> 5xx, exceptions, failed actions
+  </p>
+  <p class="muted" style="font-size:13px">The HTTP middleware picks the level from the status code (≥500 → error, ≥400 → warn, else info). The frontend <code>lib/logger.ts</code> mirrors events to the browser console (colour-coded) and batches them to the backend; warnings/errors flush immediately, and global <code>window.error</code>/<code>unhandledrejection</code> are captured automatically.</p>
+  <h3>Tracked UI events</h3>
+  <p><span class="pill">app.loaded</span><span class="pill">project.created</span><span class="pill">project.deleted (warn)</span><span class="pill">file.upload.start</span><span class="pill">file.uploaded</span><span class="pill">file.upload.failed (error)</span><span class="pill">run.launched</span><span class="pill">chat.send</span><span class="pill">chat.failed (error)</span><span class="pill">window.error (error)</span></p>
+
+  <!-- RATE LIMIT -->
+  <h2 id="ratelimit">12 · Rate limiting</h2>
+
+  <h3>What it is &amp; why</h3>
+  <p><b>Rate limiting</b> caps how many requests a single client may make to an endpoint in a time window. It exists to:</p>
+  <ul class="muted" style="font-size:14px;margin-top:0">
+    <li><b>Protect cost</b> — every chat message and every run fans out to the paid Groq API; a runaway loop or a stuck retry could burn the key's quota and money.</li>
+    <li><b>Protect stability</b> — uploads, embedding and DB writes are heavy; unbounded concurrency could exhaust CPU/connections.</li>
+    <li><b>Contain abuse / bugs</b> — a misbehaving script (or a frontend bug retrying in a tight loop) is bounded instead of taking the service down.</li>
+  </ul>
+
+  <h3>How it works under the hood</h3>
+  <p>chunklab uses <b>slowapi</b> (a Starlette/FastAPI wrapper over the <code>limits</code> library). The mechanism is a <b>fixed-window counter</b>:</p>
+  <div class="card"><pre class="flow">
+ request ─► key = client IP (slowapi `get_remote_address`)
+         ─► bucket = key + route + window ("30/minute")
+         ─► counter[bucket] += 1
+              ├─ counter ≤ limit  ─► handler runs normally (200)
+              └─ counter &gt; limit  ─► RateLimitExceeded ─► HTTP 429 Too Many Requests
+         (the counter resets when the 1-minute window rolls over)
+  </pre></div>
+  <p class="muted" style="font-size:14px">So "30/minute" means: for a given IP, the 31st call to that route within the same minute is rejected with <code>429</code>; once the window resets the budget is full again. Counts are tracked <b>per client IP and per route</b>, so hammering chat doesn't consume your upload budget.</p>
+
+  <h3>How we wire it (3 pieces)</h3>
+  <ol class="muted" style="font-size:14px">
+    <li>A shared limiter is created once in <code>app/core/ratelimit.py</code>:
+      <pre style="margin:6px 0">limiter = Limiter(key_func=get_remote_address, default_limits=["600/minute"])</pre></li>
+    <li><code>main.py</code> registers it: sets <code>app.state.limiter</code>, installs <code>SlowAPIMiddleware</code> (applies the <b>global default</b> to every route), and adds the <code>RateLimitExceeded → 429</code> exception handler.</li>
+    <li>Expensive routes add a stricter <b>per-route</b> cap with a decorator (the handler takes a <code>request: Request</code> param so slowapi can read the client IP):
+      <pre style="margin:6px 0">@router.post("/chat/stream")
+@limiter.limit("30/minute")
+async def chat_stream(request: Request, ...): ...</pre></li>
+  </ol>
+
+  <h3>The limits in place</h3>
+  <table>
+    <thead><tr><th>Scope</th><th>Limit</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Global default (all routes)</td><td><code>600 / minute</code></td><td>headroom for UI polling + SSE</td></tr>
+      <tr><td><code>POST /chat/stream</code></td><td><code>30 / minute</code></td><td>each call hits Groq</td></tr>
+      <tr><td><code>POST /projects/&#123;id&#125;/runs</code></td><td><code>30 / minute</code></td><td>runs are expensive (chunk·embed·judge)</td></tr>
+      <tr><td><code>POST /projects/&#123;id&#125;/files</code></td><td><code>120 / minute</code></td><td>allows bulk multi-upload</td></tr>
+    </tbody>
+  </table>
+
+  <h3>What a client sees, and how the UI copes</h3>
+  <p class="muted" style="font-size:14px">A blocked request returns <code>HTTP 429</code> with a JSON body like <code>{"error":"Rate limit exceeded: 30 per 1 minute"}</code>. The frontend's typed <code>apiFetch</code> surfaces that as an error toast/message, and the chat composer simply shows the message — no crash. Verified live: 35 rapid chat calls → <b>30×200 then 5×429</b>.</p>
+
+  <div class="callout c-accent"><b>Tuning &amp; scaling.</b> Limits are plain strings (<code>"N/second|minute|hour|day"</code>) — change them in <code>ratelimit.py</code> / the decorators. Storage is <b>in-memory</b>, which is correct for a single backend instance. To run multiple backend replicas, give slowapi a shared store: <code>Limiter(..., storage_uri="redis://redis:6379/1")</code> so the counters are global across instances. You can also swap the key function (e.g. per API-key or per-user instead of per-IP).</div>
+
+  <!-- RUN -->
+  <h2 id="run">13 · Run &amp; reset</h2>
+  <pre>cp .env.example .env            # set GROQ_API_KEY
+docker compose up --build       # postgres, redis, backend, worker, frontend
+# open the UI:
+open http://localhost:3000</pre>
+  <div class="callout c-rose"><b>Reset the database</b> (wipe all projects/files/runs):
+  <pre style="margin:8px 0 0">docker compose exec postgres psql -U chunklab -d chunklab \
+  -c "DROP SCHEMA IF EXISTS core CASCADE; DROP SCHEMA IF EXISTS results CASCADE;"
+docker compose exec backend sh -c 'rm -rf /app/data/uploads/*'
+docker compose exec redis redis-cli FLUSHALL
+docker compose restart backend worker      # init_db() rebuilds the schemas</pre></div>
+  <p class="muted" style="font-size:13px">The frontend talks to the backend via <code>NEXT_PUBLIC_API_BASE_URL</code> (baked at build time). Run exactly one backend so the UI and your data stay in sync.</p>
+
+  <!-- STACK -->
+  <h2 id="stack">14 · Stack &amp; ports</h2>
+  <div class="grid g2">
+    <div class="card"><h3 style="margin-top:0">Backend</h3><p class="muted" style="font-size:14px">FastAPI · SQLAlchemy 2 (async) · asyncpg · pgvector · arq · FastEmbed · transformers tokenizer · docling (+pypdf) · Groq · slowapi · langchain / llama-index splitters</p></div>
+    <div class="card"><h3 style="margin-top:0">Frontend</h3><p class="muted" style="font-size:14px">Next.js 15 · TypeScript · Tailwind · TanStack Query · Recharts · Zustand · native EventSource (SSE) · fetch streaming chat · client logger</p></div>
+  </div>
+  <table>
+    <thead><tr><th>Service</th><th>Port</th><th>Image / command</th></tr></thead>
+    <tbody>
+      <tr><td>frontend</td><td>3000</td><td>Next.js standalone</td></tr>
+      <tr><td>backend (API)</td><td>8000</td><td><code>uvicorn app.main:app</code></td></tr>
+      <tr><td>worker</td><td>—</td><td><code>arq app.workers.settings.WorkerSettings</code></td></tr>
+      <tr><td>postgres</td><td>5432</td><td><code>pgvector/pgvector:pg16</code></td></tr>
+      <tr><td>redis</td><td>6379</td><td><code>redis:7</code></td></tr>
+    </tbody>
+  </table>
+  <p class="muted" style="font-size:12px;margin-top:30px">chunklab · self-contained implementation map · open in any browser.</p>
+</main>
+</div>
+</body>
+</html>

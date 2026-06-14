@@ -11,13 +11,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# 1) Install CPU-only torch first so docling doesn't pull the CUDA build (multi-GB).
+# 1) Install CPU-only torch + torchvision (matched build) so docling doesn't pull
+#    the CUDA build (multi-GB) or a mismatched torchvision (breaks torchvision::nms).
 RUN uv pip install --system --no-cache \
-        torch --index-url https://download.pytorch.org/whl/cpu
+        torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 # 2) Install the rest of the dependencies.
 COPY backend/requirements.txt ./requirements.txt
 RUN uv pip install --system --no-cache -r requirements.txt
+
+# 2b) docling may have pulled a torchvision built against a different torch; force
+#     the matched CPU pair back so `torchvision::nms` resolves and docling imports.
+RUN uv pip install --system --no-cache --reinstall \
+        torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 # 3) App code. `app` is importable via PYTHONPATH (no packaging step needed).
 COPY backend/ /app/backend/

@@ -1,21 +1,26 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_arq, get_session
 from app.core.config import get_settings
+from app.core.logging import get_logger
+from app.core.ratelimit import limiter
 from app.db.models_core import Project, Run, RunCombination
 from app.schemas.run import CombinationOut, RunCreate, RunDetail, RunOut
 from app.services.chunking.expander import expand
 
 router = APIRouter(tags=["runs"])
 settings = get_settings()
+logger = get_logger(__name__)
 
 
 @router.post("/projects/{project_id}/runs", response_model=RunOut, status_code=201)
+@limiter.limit("30/minute")
 async def create_run(
+    request: Request,
     project_id: uuid.UUID,
     body: RunCreate,
     session: AsyncSession = Depends(get_session),
@@ -56,6 +61,7 @@ async def create_run(
     await session.refresh(run)
 
     await arq.enqueue_job("run_pipeline", str(run.id))
+    logger.info("run created id=%s name=%r combos=%d", run.id, body.name, len(combos))
     return RunOut.model_validate(run)
 
 
@@ -77,9 +83,14 @@ async def get_run(run_id: uuid.UUID, session: AsyncSession = Depends(get_session
             select(RunCombination).where(RunCombination.run_id == run_id).order_by(RunCombination.label)
         )
     ).scalars().all()
-    detail = RunDetail.model_validate(run)
-    detail.combinations = [CombinationOut.model_validate(c) for c in combos]
-    return detail
+    # Build from RunOut (columns only) + explicitly-queried combos, so Pydantic
+    # never lazy-loads the `combinations` relationship (would MissingGreenlet on the
+    # async session). Validating RunDetail directly off `run` would trigger that.
+    base = RunOut.model_validate(run)
+    return RunDetail(
+        **base.model_dump(),
+        combinations=[CombinationOut.model_validate(c) for c in combos],
+    )
 
 
 @router.get("/runs/{run_id}/combinations", response_model=list[CombinationOut])
@@ -100,3 +111,13 @@ async def cancel_run(run_id: uuid.UUID, session: AsyncSession = Depends(get_sess
         await session.commit()
         await session.refresh(run)
     return RunOut.model_validate(run)
+
+
+@router.delete("/runs/{run_id}", status_code=204)
+async def delete_run(run_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    run = await session.get(Run, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    await session.delete(run)  # cascades combinations + all results.* rows
+    await session.commit()
+    logger.warning("run deleted id=%s", run_id)

@@ -17,7 +17,23 @@ async def _startup(ctx) -> None:
     from app.core.embedding import get_embedding_model
 
     get_embedding_model()
-    logger.info("Worker started; embedding model warmed")
+
+    # Self-heal: re-enqueue any files left in a non-terminal parse state
+    # (e.g. interrupted by a restart) so they don't get stuck on "uploaded".
+    from sqlalchemy import select
+
+    from app.db.models_core import File
+    from app.db.session import session_scope
+
+    async with session_scope() as session:
+        stuck = (
+            await session.execute(
+                select(File.id).where(File.status.in_(["uploaded", "parsing"]))
+            )
+        ).scalars().all()
+    for fid in stuck:
+        await ctx["redis"].enqueue_job("parse_file_task", str(fid))
+    logger.info("Worker started; embeddings warmed; re-enqueued %d stuck file(s)", len(stuck))
 
 
 async def get_arq_pool():

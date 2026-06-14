@@ -1,17 +1,24 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_session
+from app.core.logging import get_logger
+from app.core.ratelimit import limiter
 from app.schemas.chat import ChatRequest
 from app.services.chat.chat_service import stream_answer
 from app.services.chat.context_builder import build_context
 
 router = APIRouter(tags=["chat"])
+logger = get_logger(__name__)
 
 
 @router.post("/chat/stream")
-async def chat_stream(body: ChatRequest, session: AsyncSession = Depends(get_session)):
+@limiter.limit("30/minute")
+async def chat_stream(
+    request: Request, body: ChatRequest, session: AsyncSession = Depends(get_session)
+):
+    logger.info("chat scope=%s project=%s run=%s", body.scope, body.project_id, body.run_id)
     if body.scope == "run" and not body.run_id:
         raise HTTPException(400, "run_id required for scope=run")
     if body.scope == "compare" and not (body.run_ids and len(body.run_ids) >= 2):

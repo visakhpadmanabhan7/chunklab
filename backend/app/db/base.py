@@ -1,10 +1,10 @@
-"""Two schema-bound declarative bases.
+"""Single shared MetaData; schema set per-table via __table_args__.
 
 `core`    — application data (projects, files, runs, combinations)
 `results` — experiment output (chunks+vectors, stats, qa, judgments, metrics)
 
-Keeping them in separate Postgres schemas is an explicit requirement: run
-results live apart from app data. Cross-schema foreign keys are fully supported.
+One MetaData (rather than one per schema) is required so cross-schema foreign
+keys — e.g. results.chunks.file_id -> core.files.id — resolve during create_all.
 """
 
 from datetime import datetime
@@ -14,12 +14,13 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
 
 
-class CoreBase(DeclarativeBase):
-    metadata = MetaData(schema="core")
+class Base(DeclarativeBase):
+    metadata = MetaData()
 
 
-class ResultsBase(DeclarativeBase):
-    metadata = MetaData(schema="results")
+# Backwards-compatible aliases used across the models; both map to the one Base.
+CoreBase = Base
+ResultsBase = Base
 
 
 class TimestampMixin:

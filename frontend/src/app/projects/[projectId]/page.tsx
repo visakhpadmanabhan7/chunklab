@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, FileText, Plus } from "lucide-react";
+import { ArrowRight, BarChart3, FileText, FlaskConical, Plus, Upload } from "lucide-react";
 import { listFiles, listRuns } from "@/lib/api";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatCard } from "@/components/ui/StatCard";
 import { Badge } from "@/components/ui/Badge";
 import { Progress } from "@/components/ui/Progress";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function OverviewPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -14,57 +17,74 @@ export default function OverviewPage() {
   const { data: runs } = useQuery({ queryKey: ["runs", projectId], queryFn: () => listRuns(projectId) });
 
   const parsed = files?.filter((f) => f.status === "parsed").length ?? 0;
+  const completed = runs?.filter((r) => r.status === "completed").length ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Overview</h1>
-        <Link href={`/projects/${projectId}/runs/new`} className="btn-primary">
-          <Plus className="h-4 w-4" /> New run
+    <div>
+      <PageHeader
+        title="Overview"
+        subtitle="Snapshot of this project's documents and experiments."
+        actions={
+          <Link href={`/projects/${projectId}/runs/new`} className="btn-primary">
+            <Plus className="h-4 w-4" /> New run
+          </Link>
+        }
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Files" value={files?.length ?? 0} sub={`${parsed} parsed`} icon={FileText} accent="sky" />
+        <StatCard label="Runs" value={runs?.length ?? 0} sub={`${completed} completed`} icon={FlaskConical} accent="brand" />
+        <Link href={`/projects/${projectId}/files`} className="card card-hover flex items-center gap-3 p-5">
+          <span className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600"><Upload className="h-5 w-5" /></span>
+          <div>
+            <p className="text-sm font-semibold text-slate-800">Add documents</p>
+            <p className="text-xs text-slate-500">Upload files to chunk</p>
+          </div>
+        </Link>
+        <Link href={`/projects/${projectId}/analytics`} className="card card-hover flex items-center gap-3 p-5">
+          <span className="rounded-xl bg-amber-50 p-2.5 text-amber-600"><BarChart3 className="h-5 w-5" /></span>
+          <div>
+            <p className="text-sm font-semibold text-slate-800">Analytics</p>
+            <p className="text-xs text-slate-500">Compare all runs</p>
+          </div>
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="card p-5">
-          <p className="text-xs uppercase text-slate-400">Files</p>
-          <p className="mt-1 text-2xl font-bold">{files?.length ?? 0}</p>
-          <p className="text-xs text-slate-500">{parsed} parsed</p>
-        </div>
-        <div className="card p-5">
-          <p className="text-xs uppercase text-slate-400">Runs</p>
-          <p className="mt-1 text-2xl font-bold">{runs?.length ?? 0}</p>
-        </div>
-        <Link href={`/projects/${projectId}/files`} className="card flex flex-col justify-center p-5 hover:shadow-md">
-          <p className="flex items-center gap-2 text-sm font-medium text-brand-700">
-            <FileText className="h-4 w-4" /> Manage files <ArrowRight className="h-4 w-4" />
-          </p>
-        </Link>
-      </div>
-
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Recent runs</h2>
+      <h2 className="mb-3 mt-8 text-sm font-semibold text-slate-700">Recent runs</h2>
+      {runs && runs.length > 0 ? (
         <div className="space-y-2">
-          {runs?.slice(0, 6).map((r) => (
+          {runs.slice(0, 8).map((r) => (
             <Link
               key={r.id}
               href={`/projects/${projectId}/runs/${r.id}`}
-              className="card flex items-center justify-between p-4 hover:shadow-md"
+              className="card card-hover flex items-center justify-between p-4"
             >
               <div className="min-w-0">
-                <p className="truncate font-medium">{r.name}</p>
-                <p className="text-xs text-slate-500">{r.total_combinations} combinations</p>
+                <p className="truncate font-medium text-slate-800">{r.name}</p>
+                <p className="text-xs text-slate-500">
+                  {r.total_combinations} combinations · {new Date(r.created_at).toLocaleString()}
+                </p>
               </div>
               <div className="flex items-center gap-3">
-                {r.status === "running" && <Progress value={r.progress} className="w-24" />}
+                {["running", "queued"].includes(r.status) && <Progress value={r.progress} className="w-28" />}
                 <Badge status={r.status}>{r.status}</Badge>
+                <ArrowRight className="h-4 w-4 text-slate-300" />
               </div>
             </Link>
           ))}
-          {runs?.length === 0 && (
-            <p className="py-6 text-center text-sm text-slate-400">No runs yet.</p>
-          )}
         </div>
-      </div>
+      ) : (
+        <EmptyState
+          icon={FlaskConical}
+          title="No runs yet"
+          description="Add documents, then launch a run to compare chunking strategies."
+          action={
+            <Link href={`/projects/${projectId}/runs/new`} className="btn-primary">
+              <Plus className="h-4 w-4" /> New run
+            </Link>
+          }
+        />
+      )}
     </div>
   );
 }

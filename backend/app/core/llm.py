@@ -29,7 +29,9 @@ class GroqProvider:
 
     def __init__(self) -> None:
         settings = get_settings()
-        self.client = groq.AsyncGroq(api_key=settings.GROQ_API_KEY)
+        # max_retries lets the SDK wait out transient 429s (per-minute TPM/RPM limits)
+        # with backoff that respects the Retry-After header.
+        self.client = groq.AsyncGroq(api_key=settings.GROQ_API_KEY, max_retries=6)
         self.model = settings.GROQ_MODEL
 
     @staticmethod
