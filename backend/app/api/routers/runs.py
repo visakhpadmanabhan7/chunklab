@@ -42,7 +42,12 @@ async def create_run(
     run = Run(
         project_id=project_id,
         name=body.name,
-        config={"file_ids": file_ids, "combinations": [c.model_dump() for c in body.combinations]},
+        config={
+            "file_ids": file_ids,
+            "combinations": [c.model_dump() for c in body.combinations],
+            "qa_per_file": body.qa_per_file,
+            "max_qa": body.max_qa,
+        },
         embedding_model=settings.EMBEDDING_MODEL,
         top_k=body.top_k or settings.TOP_K,
         status="queued",

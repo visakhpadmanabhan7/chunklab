@@ -20,6 +20,7 @@ import { formatCost, formatMs, formatTokens } from "@/lib/format";
 import type { ReportRow } from "@/lib/types";
 import { StatCard } from "@/components/ui/StatCard";
 import { CardSkeleton } from "@/components/ui/Skeleton";
+import { MetricsInfo } from "@/components/results/MetricsInfo";
 
 const METRIC_COLS: { key: keyof ReportRow; label: string }[] = [
   { key: "relevance", label: "relev" },
@@ -96,10 +97,10 @@ export function ResultsDashboard({ runId }: { runId: string }) {
               <YAxis domain={[0, 1]} tick={{ fontSize: 11 }} />
               <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="ndcg" fill="#4f46e5" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="P@k" fill="#818cf8" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="faith" fill="#34d399" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="relev" fill="#fbbf24" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="ndcg" fill="#6366f1" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="P@k" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="faith" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="relev" fill="#f59e0b" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -126,9 +127,12 @@ export function ResultsDashboard({ runId }: { runId: string }) {
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3">
           <h3 className="text-sm font-semibold text-slate-700">All combinations</h3>
-          <button className="btn-secondary btn-sm" onClick={() => downloadCsv(rows)}>
-            <Download className="h-3.5 w-3.5" /> CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <MetricsInfo />
+            <button className="btn-secondary btn-sm" onClick={() => downloadCsv(rows)}>
+              <Download className="h-3.5 w-3.5" /> CSV
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="tbl">

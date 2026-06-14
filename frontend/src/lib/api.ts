@@ -86,6 +86,8 @@ export function uploadFile(
 export interface RunCreatePayload {
   name: string;
   top_k?: number;
+  qa_per_file?: number;
+  max_qa?: number;
   combinations: { strategy: string; params: Record<string, unknown> }[];
   file_ids: string[] | "all";
 }

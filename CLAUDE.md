@@ -53,6 +53,11 @@ Ports: **3000** frontend · **8000** backend · **5432** postgres · **6379** re
 The real Groq key lives in a **gitignored `.env`** (copied from `.env.example`).
 NEVER commit `.env` or hardcode keys. The repo is private. See `docs/SECURITY.md`.
 
+## Git / commit conventions
+- **Never** add `Co-Authored-By` trailers to commits, and **never** mention Claude/AI/assistant
+  tooling in commit messages or PR descriptions. Write commits as the author.
+- Commit only when asked; branch off `main` for non-trivial work; never commit `.env`.
+
 ## Where things are
 - Run pipeline: `app/workers/run_pipeline.py` · progress: `app/workers/progress.py`
 - Eval: `app/services/eval/{qa_generator,retriever,judge,metrics}.py`

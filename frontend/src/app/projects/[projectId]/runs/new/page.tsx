@@ -18,6 +18,8 @@ export default function NewRunPage() {
 
   const [name, setName] = useState(`Run ${new Date().toLocaleString()}`);
   const [topK, setTopK] = useState(5);
+  const [qaPerFile, setQaPerFile] = useState(5);
+  const [maxQa, setMaxQa] = useState(10);
   const [strategyId, setStrategyId] = useState("sentence");
   const strategy = strategyById(strategyId)!;
   const [params, setParams] = useState<Record<string, number>>(
@@ -48,6 +50,8 @@ export default function NewRunPage() {
       createRun(projectId, {
         name,
         top_k: topK,
+        qa_per_file: qaPerFile,
+        max_qa: maxQa,
         combinations: combos.map((c) => ({ strategy: c.strategy, params: c.params })),
         file_ids: scope === "all" ? "all" : selected,
       }),
@@ -74,24 +78,32 @@ export default function NewRunPage() {
       <div className="grid gap-5 lg:grid-cols-5">
         <div className="space-y-5 lg:col-span-3">
           {/* run config */}
-          <div className="card p-5">
+          <div className="card space-y-3 p-5">
+            <div>
+              <label className="label">Run name</label>
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="sm:col-span-2">
-                <label className="label">Run name</label>
-                <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
               <div>
                 <label className="label">Retrieval top-k</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={topK}
-                  min={1}
-                  max={20}
-                  onChange={(e) => setTopK(Number(e.target.value))}
-                />
+                <input type="number" className="input" value={topK} min={1} max={20}
+                  onChange={(e) => setTopK(Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="label">Questions / document</label>
+                <input type="number" className="input" value={qaPerFile} min={1} max={20}
+                  onChange={(e) => setQaPerFile(Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="label">Max total questions</label>
+                <input type="number" className="input" value={maxQa} min={1} max={100}
+                  onChange={(e) => setMaxQa(Number(e.target.value))} />
               </div>
             </div>
+            <p className="text-xs text-slate-400">
+              Questions are auto-generated once per run (shared across all combinations). Fewer
+              questions = faster &amp; fewer LLM tokens.
+            </p>
           </div>
 
           {/* strategy picker */}

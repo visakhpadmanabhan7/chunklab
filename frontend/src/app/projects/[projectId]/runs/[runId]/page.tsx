@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, FlaskConical, GitCompare, MessageSquareText } from "lucide-react";
+import { BarChart3, FlaskConical, GitCompare, MessageSquare, MessageSquareText } from "lucide-react";
 import { getRun, listRuns } from "@/lib/api";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { RunProgress } from "@/components/runs/RunProgress";
 import { ResultsDashboard } from "@/components/results/ResultsDashboard";
 import { QASet } from "@/components/results/QASet";
+import { ChatPanel, RUN_SUGGESTIONS } from "@/components/chat/ChatPanel";
 
 export default function RunDetailPage() {
   const { projectId, runId } = useParams<{ projectId: string; runId: string }>();
@@ -22,7 +23,7 @@ export default function RunDetailPage() {
     refetchInterval: (q) => (["queued", "running"].includes(q.state.data?.status ?? "") ? 2000 : false),
   });
   const { data: runs } = useQuery({ queryKey: ["runs", projectId], queryFn: () => listRuns(projectId) });
-  const [tab, setTab] = useState<"analytics" | "qa">("analytics");
+  const [tab, setTab] = useState<"analytics" | "qa" | "chat">("analytics");
 
   if (isLoading) return <div className="h-40 skeleton" />;
   if (isError || !run)
@@ -73,6 +74,7 @@ export default function RunDetailPage() {
             {([
               { id: "analytics", label: "Analytics", icon: BarChart3 },
               { id: "qa", label: "QA set", icon: MessageSquareText },
+              { id: "chat", label: "Chat", icon: MessageSquare },
             ] as const).map((t) => (
               <button
                 key={t.id}
@@ -88,10 +90,17 @@ export default function RunDetailPage() {
               </button>
             ))}
           </div>
-          {tab === "analytics" ? (
-            <ResultsDashboard runId={runId} />
-          ) : (
-            <QASet runId={runId} projectId={projectId} />
+          {tab === "analytics" && <ResultsDashboard runId={runId} />}
+          {tab === "qa" && <QASet runId={runId} projectId={projectId} />}
+          {tab === "chat" && (
+            <ChatPanel
+              projectId={projectId}
+              scope="run"
+              runId={runId}
+              heightClass="h-[560px]"
+              suggestions={RUN_SUGGESTIONS}
+              placeholder="Ask about this run…"
+            />
           )}
         </>
       )}

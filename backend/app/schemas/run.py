@@ -13,6 +13,8 @@ class CombinationSpec(BaseModel):
 class RunCreate(BaseModel):
     name: str
     top_k: int | None = None
+    qa_per_file: int | None = None   # questions generated per document
+    max_qa: int | None = None        # cap on total questions for the run
     combinations: list[CombinationSpec]
     file_ids: list[uuid.UUID] | Literal["all"] = "all"
 

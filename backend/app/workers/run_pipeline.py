@@ -127,11 +127,13 @@ async def run_pipeline(ctx, run_id: str) -> None:
             # ---- generate the shared QA evaluation set (once per run) ----
             await P.emit_log(run_id, "Generating QA evaluation set")
             qa_records: list[tuple[QAPair, uuid.UUID, object]] = []
-            max_total = settings.MAX_QA_PAIRS_PER_RUN
+            cfg = run.config if isinstance(run.config, dict) else {}
+            qa_per_file = int(cfg.get("qa_per_file") or settings.QA_PAIRS_PER_FILE)
+            max_total = int(cfg.get("max_qa") or settings.MAX_QA_PAIRS_PER_RUN)
             for f in files:
                 if len(qa_records) >= max_total:
                     break
-                want = min(settings.QA_PAIRS_PER_FILE, max_total - len(qa_records))
+                want = min(qa_per_file, max_total - len(qa_records))
                 gen = await generate_qa_pairs(parsed_map[f.id].clean_text, want)
                 for g in gen:
                     qa = QAPair(

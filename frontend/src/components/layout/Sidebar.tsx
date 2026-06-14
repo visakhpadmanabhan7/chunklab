@@ -11,7 +11,6 @@ import {
   FlaskConical,
   Info,
   LayoutDashboard,
-  LineChart,
   MessageSquare,
   type LucideIcon,
 } from "lucide-react";
@@ -62,7 +61,6 @@ export function Sidebar() {
         { href: base, label: "Overview", icon: LayoutDashboard, active: pathname === base },
         { href: `${base}/files`, label: "Files", icon: FileText, active: pathname.startsWith(`${base}/files`) },
         { href: `${base}/runs`, label: "Runs", icon: BarChart3, active: pathname.startsWith(`${base}/runs`) },
-        { href: `${base}/analytics`, label: "Analytics", icon: LineChart, active: pathname.startsWith(`${base}/analytics`) },
         { href: `${base}/chat`, label: "Chat", icon: MessageSquare, active: pathname.startsWith(`${base}/chat`) },
       ]
     : [];
