@@ -19,7 +19,7 @@ jobs:
         run: uv pip install --system pydantic pydantic-settings pytest pytest-asyncio
       - name: Lint
         run: |
-          uv pip install --system ruff
+          uv pip install --system ruff==0.15.17
           ruff check backend/app backend/tests
       - name: Unit tests (no external services)
         run: |

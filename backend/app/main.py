@@ -7,12 +7,6 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from app.core.config import get_settings
-from app.core.logging import configure_logging, get_logger
-from app.core.ratelimit import limiter
-from app.db.setup_db import init_db
-from app.workers.settings import get_arq_pool
-
 # Importing the package registers all chunking strategies.
 import app.services.chunking  # noqa: F401
 from app.api.routers import (
@@ -25,6 +19,11 @@ from app.api.routers import (
     results,
     runs,
 )
+from app.core.config import get_settings
+from app.core.logging import configure_logging, get_logger
+from app.core.ratelimit import limiter
+from app.db.setup_db import init_db
+from app.workers.settings import get_arq_pool
 
 logger = get_logger(__name__)
 access_log = get_logger("access")

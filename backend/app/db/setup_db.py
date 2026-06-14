@@ -7,13 +7,13 @@ index. Safe to call repeatedly.
 from sqlalchemy import text
 
 from app.core.logging import get_logger
-from app.db.base import Base
 
 # Import models so their tables register on the shared metadata.
 from app.db import (
     models_core,  # noqa: F401
     models_results,  # noqa: F401
 )
+from app.db.base import Base
 from app.db.engine import engine
 
 logger = get_logger(__name__)
