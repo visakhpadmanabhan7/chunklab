@@ -174,6 +174,7 @@ and CSV shaping.
 ---
 
 ## 💡 Backlog / future ideas
+- **Run-progress UI redesign** (held — awaiting user go-ahead): the live progress screen (overall bar + per-combination rows + activity feed) looks basic; design a cleaner layout — e.g. per-stage chips (chunk→embed→retrieve→judge), per-file detail, nicer empty/queued/running states, and a clearer "throttled / retrying" indicator when Groq is rate-limiting. Not started.
 - **Auth & multi-user** (today everything is `user_id="anonymous"`).
 - **More strategies**: markdown-aware, sliding-window, proposition-based, late chunking.
 - **Re-ranking** step (cross-encoder) before judging; configurable retrievers.

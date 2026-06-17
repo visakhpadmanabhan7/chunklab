@@ -36,6 +36,37 @@ def _format_report(name: str, report: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _winners(report: list[dict]) -> str:
+    """A pre-computed leaderboard so the model reads answers off rather than
+    re-deriving them from the table (weak models otherwise misread/hallucinate)."""
+    if not report:
+        return ""
+
+    def top(key: str, lo: bool = False):
+        return (min if lo else max)(report, key=lambda r: r.get(key) or 0)
+
+    bn, br, bp, bf = top("ndcg_at_k"), top("recall_at_k"), top("precision_at_k"), top("faithfulness")
+    cheap = top("total_cost_usd", lo=True)
+    fast = min(report, key=lambda r: r.get("avg_retrieval_latency_ms") or 1e12)
+    ranked = sorted(report, key=lambda r: r.get("ndcg_at_k") or 0, reverse=True)
+    ranking = " > ".join(f"{r['label']} ({(r.get('ndcg_at_k') or 0):.3f})" for r in ranked)
+    worst = ranked[-1]
+    return (
+        f"### Leaderboard (this run, {len(report)} combinations) — read answers from here\n"
+        f"- best nDCG (overall accuracy): {bn['label']} ({bn['ndcg_at_k']:.4f})\n"
+        f"- best recall@k: {br['label']} ({br['recall_at_k']:.4f})\n"
+        f"- best precision@k: {bp['label']} ({bp['precision_at_k']:.4f})\n"
+        f"- best faithfulness: {bf['label']} ({bf['faithfulness']:.4f})\n"
+        f"- lowest cost: {cheap['label']} (${cheap['total_cost_usd']:.4f})\n"
+        f"- fastest retrieval: {fast['label']} ({fast['avg_retrieval_latency_ms']:.1f} ms)\n"
+        f"- overall ranking by nDCG (best to worst): {ranking}\n"
+        f"- WEAKEST overall (lowest nDCG): {worst['label']} "
+        f"(nDCG {(worst.get('ndcg_at_k') or 0):.4f}, recall {(worst.get('recall_at_k') or 0):.4f}, "
+        f"P@k {(worst.get('precision_at_k') or 0):.4f}, MRR {(worst.get('mrr') or 0):.4f}, "
+        f"faithfulness {(worst.get('faithfulness') or 0):.4f}) — its full per-metric row is in the table below"
+    )
+
+
 async def _best_combination_id(session: AsyncSession, run_id: uuid.UUID) -> uuid.UUID | None:
     stmt = (
         select(RunCombination.id)
@@ -70,7 +101,8 @@ async def build_context(
 
     if scope == "run" and run_id:
         report = await build_run_report(session, run_id)
-        parts.append(_format_report(f"Run {run_id}", report))
+        parts.append(_winners(report))
+        parts.append(_format_report(f"Run {run_id} — {len(report)} combinations", report))
         parts += await _retrieve_snippets(session, run_id, query)
 
     elif scope == "compare" and run_ids:

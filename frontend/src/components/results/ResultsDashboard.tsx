@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   ResponsiveContainer,
   Scatter,
@@ -12,7 +14,6 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  ZAxis,
 } from "recharts";
 import { Award, Coins, Download, Gauge, Trophy } from "lucide-react";
 import { getResults } from "@/lib/api";
@@ -47,8 +48,48 @@ function downloadCsv(rows: ReportRow[]) {
   URL.revokeObjectURL(url);
 }
 
+const SCATTER_COLORS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#ef4444"];
+// One stable color per combination (by row order), reused in the scatter + the table.
+const comboColor = (i: number) => SCATTER_COLORS[i % SCATTER_COLORS.length];
+
+// Y-axis options for the cost-vs-X scatter (all 0..1, higher = better).
+const Y_METRICS = [
+  { key: "ndcg_at_k", label: "nDCG" },
+  { key: "recall_at_k", label: "recall@k" },
+  { key: "precision_at_k", label: "P@k" },
+  { key: "mrr", label: "MRR" },
+  { key: "f2", label: "F2" },
+  { key: "relevance", label: "relevance" },
+  { key: "faithfulness", label: "faithfulness" },
+  { key: "context_precision", label: "ctx precision" },
+  { key: "context_recall", label: "ctx recall" },
+] as const;
+type YKey = (typeof Y_METRICS)[number]["key"];
+
+function ScatterTip({
+  active,
+  payload,
+  metricLabel = "nDCG",
+}: {
+  active?: boolean;
+  payload?: { payload: { label: string; x: number; y: number; z: number; optimal: boolean } }[];
+  metricLabel?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
+      <p className="font-mono font-semibold text-slate-700">{d.label}{d.optimal ? " ★" : ""}</p>
+      <p className="text-slate-500">{metricLabel} <b className="text-slate-700">{d.y.toFixed(3)}</b></p>
+      <p className="text-slate-500">cost <b className="text-slate-700">{formatCost(d.x)}</b></p>
+      <p className="text-slate-500">latency <b className="text-slate-700">{formatMs(d.z)}</b></p>
+    </div>
+  );
+}
+
 export function ResultsDashboard({ runId }: { runId: string }) {
   const { data, isLoading } = useQuery({ queryKey: ["results", runId], queryFn: () => getResults(runId) });
+  const [yKey, setYKey] = useState<YKey>("ndcg_at_k");
 
   if (isLoading) return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[0,1,2,3].map((i) => <CardSkeleton key={i} />)}</div>;
   const rows = data?.combinations ?? [];
@@ -68,7 +109,25 @@ export function ResultsDashboard({ runId }: { runId: string }) {
   METRIC_COLS.forEach((c) => (colMax[c.key as string] = Math.max(...rows.map((r) => r[c.key] as number))));
 
   const barData = rows.map((r) => ({ label: r.label, relev: r.relevance, faith: r.faithfulness, "P@k": r.precision_at_k, ndcg: r.ndcg_at_k }));
-  const scatterData = rows.map((r) => ({ x: r.total_cost_usd, y: r.ndcg_at_k, z: r.avg_retrieval_latency_ms, label: r.label }));
+  const yLabel = Y_METRICS.find((m) => m.key === yKey)!.label;
+  const scatterData = rows.map((r, i) => {
+    const y = r[yKey] as number;
+    return {
+      x: r.total_cost_usd,
+      y,
+      z: r.avg_retrieval_latency_ms,
+      label: r.label,
+      color: comboColor(i),
+      // Pareto-optimal: nothing else is both cheaper-or-equal AND as-or-better on the selected metric
+      optimal: !rows.some(
+        (o) =>
+          o !== r &&
+          o.total_cost_usd <= r.total_cost_usd &&
+          (o[yKey] as number) >= y &&
+          (o.total_cost_usd < r.total_cost_usd || (o[yKey] as number) > y),
+      ),
+    };
+  });
   const allZero = rows.every((r) => r.ndcg_at_k === 0 && r.relevance === 0);
 
   return (
@@ -106,19 +165,61 @@ export function ResultsDashboard({ runId }: { runId: string }) {
         </div>
 
         <div className="card p-5">
-          <h3 className="mb-4 text-sm font-semibold text-slate-700">Cost vs accuracy <span className="font-normal text-slate-400">(bubble = latency)</span></h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <ScatterChart margin={{ left: -18, bottom: 8 }}>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-slate-700">Cost vs {yLabel} <span className="font-normal text-slate-400">(top-left = better · ★ best)</span></h3>
+            <select
+              value={yKey}
+              onChange={(e) => setYKey(e.target.value as YKey)}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none focus:border-brand-300"
+              title="Choose the y-axis metric"
+            >
+              {Y_METRICS.map((m) => (
+                <option key={m.key} value={m.key}>cost vs {m.label}</option>
+              ))}
+            </select>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <ScatterChart margin={{ top: 12, right: 22, bottom: 26, left: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
-              <XAxis type="number" dataKey="x" name="cost" tick={{ fontSize: 11 }} unit="$" />
-              <YAxis type="number" dataKey="y" name="nDCG" domain={[0, 1]} tick={{ fontSize: 11 }} />
-              <ZAxis type="number" dataKey="z" range={[60, 420]} name="latency" />
-              <Tooltip
-                cursor={{ strokeDasharray: "3 3" }}
-                contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
-                formatter={(v: number, n: string) => [n === "cost" ? `$${v}` : v, n]}
+              <XAxis
+                type="number"
+                dataKey="x"
+                name="cost"
+                tick={{ fontSize: 11 }}
+                tickFormatter={(v) => `$${Number(v).toFixed(4)}`}
+                label={{ value: "cost ($ / run)", position: "insideBottom", offset: -12, fontSize: 11, fill: "#64748b" }}
               />
-              <Scatter data={scatterData} fill="#4f46e5" fillOpacity={0.75} />
+              <YAxis
+                type="number"
+                dataKey="y"
+                name={yLabel}
+                domain={[0, 1]}
+                tick={{ fontSize: 11 }}
+                label={{ value: yLabel, angle: -90, position: "insideLeft", offset: 18, fontSize: 11, fill: "#64748b" }}
+              />
+              <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<ScatterTip metricLabel={yLabel} />} />
+              <Legend
+                verticalAlign="bottom"
+                iconType="circle"
+                wrapperStyle={{ fontSize: 11, paddingTop: 10 }}
+                payload={scatterData.map((d) => ({
+                  value: d.optimal ? `${d.label} ★` : d.label,
+                  id: d.label,
+                  type: "circle" as const,
+                  color: d.optimal ? d.color : "#cbd5e1",
+                }))}
+              />
+              <Scatter data={scatterData}>
+                {scatterData.map((d, i) => (
+                  <Cell
+                    key={i}
+                    fill={d.optimal ? d.color : "#cbd5e1"}
+                    fillOpacity={d.optimal ? 0.92 : 0.55}
+                    stroke={d.optimal ? d.color : "#94a3b8"}
+                    strokeWidth={d.optimal ? 2 : 1}
+                  />
+                ))}
+              </Scatter>
             </ScatterChart>
           </ResponsiveContainer>
         </div>
@@ -147,9 +248,12 @@ export function ResultsDashboard({ runId }: { runId: string }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {rows.map((r, i) => (
                 <tr key={r.combination_id}>
-                  <td className="font-mono text-slate-700">{r.label}</td>
+                  <td className="font-mono text-slate-700">
+                    <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: comboColor(i) }} />
+                    {r.label}
+                  </td>
                   <td>{r.chunk_count}</td>
                   <td>{formatTokens(r.total_tokens)}</td>
                   <td>{formatCost(r.total_cost_usd)}</td>
