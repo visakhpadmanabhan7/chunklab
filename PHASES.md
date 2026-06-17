@@ -141,6 +141,38 @@ should include one (or fall back to LLM-judge-only when absent).
 
 ---
 
+## 🔭 Phase 7 — Selectable metrics + per-question (disaggregated) results (proposed)
+
+**Today** the results tab shows a fixed set of all 9 metrics, **aggregated** (macro-averaged) to one
+row per combination. Let users **pick which metrics** they care about and view/export results in
+**both shapes**: aggregated (per combination) *and* separate/per-question (one row per combination ×
+question), choosing whichever they want.
+
+**What already exists (most of the data is there):**
+- ✅ **Aggregated** per-combination metrics — the `results.metrics` row (drives the dashboard today).
+- ✅ **Per-question judge** scores — already stored in `results.judge_evaluations` (one per retrieval), just not surfaced.
+- ✅ **Per-question retrievals** (which chunks + cosine scores) — already stored in `results.retrievals`.
+
+**What to add:**
+- **Persist per-question *computed* metrics** — the only real gap: `compute_for_query` results are
+  currently averaged away. Add a `results.query_metrics` table (or JSON column on `retrievals`) so the
+  per-question view has P@k/recall/MRR/nDCG/F2 too, not just the judge dims. *(Small `run_pipeline` change.)*
+- **Per-question results endpoint** — `GET /runs/{id}/per-question` returning, per combination × question:
+  retrieved chunks, computed metrics, and judge scores (reuse `reporting.py` join patterns).
+- **UI: an "Aggregated | Per-question" toggle** on the results tab, plus a **metric multi-select**
+  (checkboxes) that drives the table, charts, and CSV — so the user shows exactly the metrics they want.
+- **CSV export in both shapes** (one row per combination, or per combination × question), limited to the
+  selected metrics.
+
+**Benefits:** drill into *why* a combination scored as it did (which questions it failed), spot
+question-level variance the macro-average hides, and export tailored metric sets for offline analysis.
+
+**Effort:** small–medium. The judge per-question data is already captured; the main backend work is
+persisting per-question computed metrics + the new endpoint. The rest is a UI toggle, a metric selector,
+and CSV shaping.
+
+---
+
 ## 💡 Backlog / future ideas
 - **Auth & multi-user** (today everything is `user_id="anonymous"`).
 - **More strategies**: markdown-aware, sliding-window, proposition-based, late chunking.

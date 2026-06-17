@@ -382,10 +382,9 @@ Use two streaming mechanisms suited to each flow:
 
 **Context**
 
-The project uses a real Groq API key. The key was copied locally from another project
-(`mindmate_proj/.env`) into chunklab's `.env`. A leaked key in git history is a real
-security incident, and chunklab is an early-stage personal project rather than a public
-open-source release.
+The project uses a real Groq API key, stored only in chunklab's gitignored `.env`. A
+leaked key in git history is a real security incident, and chunklab is an early-stage
+personal project rather than a public open-source release.
 
 **Decision**
 

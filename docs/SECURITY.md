@@ -104,13 +104,12 @@ landed in history. Rotate the key immediately and scrub history before pushing
 
 ## How `.env` was created
 
-The local `.env` was created by **copying an existing key from another local
-project, without echoing it to the terminal**:
+The local `.env` was created by **pasting the key directly into the file, without
+echoing it to the terminal**:
 
-- The Groq key was copied from `/Users/visakh/GitHub/mindmate_proj/.env` into
-  chunklab's local `.env` using a file-to-file copy / editor paste — **never**
-  via `echo`, `cat`, or any command that would print the key to the terminal
-  (and therefore into shell history).
+- The Groq key was written into chunklab's local `.env` using a file-to-file copy /
+  editor paste — **never** via `echo`, `cat`, or any command that would print the key
+  to the terminal (and therefore into shell history).
 - The key was **never committed**. Only `.env.example` (placeholders) is in git.
 
 To set up your own environment:

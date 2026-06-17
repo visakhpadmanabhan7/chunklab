@@ -4,8 +4,6 @@ Ground truth = the gold passage a QA pair was generated from. A retrieved chunk
 counts as relevant when it comes from the same file AND its text substantially
 overlaps the gold passage (word-set overlap >= threshold). With one gold passage
 per question, recall/MRR/nDCG use a single relevant target.
-
-Adapted from final_thesis textbook_log.py (precision/recall/F2, macro-averaged).
 """
 
 import math

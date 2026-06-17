@@ -7,10 +7,135 @@ database is bootstrapped idempotently at startup.
 
 It is grounded in the actual SQLAlchemy 2 models:
 
-- `backend/app/db/base.py` — schema-bound declarative bases + `TimestampMixin`
+- `backend/app/db/base.py` — single shared `MetaData` (schema set per-table) + `TimestampMixin`
 - `backend/app/db/models_core.py` — `core` schema
 - `backend/app/db/models_results.py` — `results` schema
 - `backend/app/db/setup_db.py` — `init_db()` bootstrap
+
+---
+
+## Entity-relationship diagram
+
+The eleven tables and how they reference each other. `core` tables (indigo in the
+[visual version](./er_diagram.html)) hold what you create; `results` tables hold
+what a run produces. All foreign keys are `ON DELETE CASCADE`; cross-schema FKs
+(e.g. `results.chunks.combination_id → core.run_combinations.id`) are real
+constraints. `||--o{` = one-to-many, `||--o|` = one-to-(zero-or)-one (a unique FK).
+
+```mermaid
+erDiagram
+    projects ||--o{ files : "has"
+    projects ||--o{ runs : "has"
+    files ||--o| parsed_documents : "parsed into"
+    runs ||--o{ run_combinations : "expands into"
+    run_combinations ||--o{ chunks : "produces"
+    files ||--o{ chunks : "source of"
+    run_combinations ||--o| combination_stats : "summarized by"
+    run_combinations ||--o| metrics : "scored by"
+    runs ||--o{ qa_pairs : "generates (shared)"
+    files ||--o{ qa_pairs : "source of"
+    run_combinations ||--o{ retrievals : "performs"
+    qa_pairs ||--o{ retrievals : "answered by"
+    retrievals ||--o| judge_evaluations : "judged by"
+
+    projects {
+        uuid id PK
+        string user_id
+        string name
+        text description
+    }
+    files {
+        uuid id PK
+        uuid project_id FK
+        string filename
+        string status "uploaded|parsing|parsed|failed"
+        string parser_used
+        jsonb parse_options
+    }
+    parsed_documents {
+        uuid id PK
+        uuid file_id FK "unique (1:1)"
+        text clean_text
+        int char_count
+        int page_count
+    }
+    runs {
+        uuid id PK
+        uuid project_id FK
+        string name
+        jsonb config "matrix + qa knobs"
+        string status
+        int top_k
+        int total_combinations
+        float progress
+    }
+    run_combinations {
+        uuid id PK
+        uuid run_id FK
+        string strategy
+        jsonb params
+        string label "dedup key"
+        string status
+    }
+    chunks {
+        uuid id PK
+        uuid combination_id FK
+        uuid file_id FK
+        int chunk_index
+        text content
+        int token_count
+        vector embedding "384-dim (pgvector, HNSW)"
+    }
+    combination_stats {
+        uuid id PK
+        uuid combination_id FK "unique (1:1)"
+        int chunk_count
+        int total_tokens
+        numeric total_cost_usd
+    }
+    qa_pairs {
+        uuid id PK
+        uuid run_id FK
+        uuid file_id FK
+        text question
+        text reference_answer
+        text source_chunk_text "gold passage"
+        int source_offset_start
+        int source_offset_end
+    }
+    retrievals {
+        uuid id PK
+        uuid combination_id FK
+        uuid qa_pair_id FK
+        uuid_array retrieved_chunk_ids "top-k"
+        float_array scores
+        int latency_ms
+    }
+    judge_evaluations {
+        uuid id PK
+        uuid retrieval_id FK "unique (1:1)"
+        float relevance
+        float faithfulness
+        float context_precision
+        float context_recall
+        int judge_tokens_in
+        int judge_tokens_out
+    }
+    metrics {
+        uuid id PK
+        uuid combination_id FK "unique (1:1)"
+        float ndcg_at_k
+        float precision_at_k
+        float recall_at_k
+        float mrr
+        float f2
+    }
+```
+
+> A standalone visual version (color-coded by schema) lives at
+> [`docs/er_diagram.html`](./er_diagram.html); a populated example (one run traced
+> through every table with sample rows) is at
+> [`docs/sample_run_data.html`](./sample_run_data.html).
 
 ---
 
@@ -23,20 +148,39 @@ chunklab splits its tables across **two Postgres schemas** in the same database:
 | `core` | Application data — the things a user creates and manages | `projects`, `files`, `parsed_documents`, `runs`, `run_combinations` |
 | `results` | Experiment output — everything a pipeline run produces | `chunks` (with embeddings), `combination_stats`, `qa_pairs`, `retrievals`, `judge_evaluations`, `metrics` |
 
-This split is implemented with **two separate declarative bases**, each carrying
-its own `MetaData` pinned to a schema (`backend/app/db/base.py`):
+The split is implemented with a **single shared `MetaData`**; each table declares
+its schema individually via `__table_args__` (`backend/app/db/base.py`):
 
 ```python
-class CoreBase(DeclarativeBase):
-    metadata = MetaData(schema="core")
+class Base(DeclarativeBase):
+    metadata = MetaData()          # ONE MetaData for both schemas
 
-class ResultsBase(DeclarativeBase):
-    metadata = MetaData(schema="results")
+# Aliases used by the models — both point at the same Base.
+CoreBase = Base
+ResultsBase = Base
 ```
 
-`core`-schema models inherit from `CoreBase`; `results`-schema models inherit
-from `ResultsBase`. SQLAlchemy emits every table qualified with its schema
-(`core.projects`, `results.chunks`, ...).
+```python
+# e.g. in models_core.py
+class Project(CoreBase, TimestampMixin):
+    __tablename__ = "projects"
+    __table_args__ = {"schema": "core"}
+    ...
+
+# e.g. in models_results.py
+class Chunk(ResultsBase, TimestampMixin):
+    __tablename__ = "chunks"
+    __table_args__ = {"schema": "results"}
+    ...
+```
+
+A **single** `MetaData` (rather than one per schema) is required so that
+**cross-schema foreign keys** — e.g. `results.chunks.file_id → core.files.id` —
+resolve during `create_all()`. With two separate `MetaData` registries, the FK
+target lives in a different registry and `create_all` raises
+`NoReferencedTableError`. The `CoreBase` / `ResultsBase` names are kept only as
+readability aliases; they are literally the same class. SQLAlchemy still emits
+every table qualified with its schema (`core.projects`, `results.chunks`, ...).
 
 ### Why two schemas
 

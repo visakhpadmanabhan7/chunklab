@@ -1,5 +1,5 @@
 """Groq LLM provider — async client used for QA generation, the LLM-as-judge,
-and the RAG chatbot. Adapted from mindmate_proj/app/core/llm.py (Groq-only)."""
+and the RAG chatbot."""
 
 from dataclasses import dataclass
 from typing import AsyncIterator
