@@ -20,6 +20,7 @@ export default function NewRunPage() {
   const [topK, setTopK] = useState(5);
   const [qaPerFile, setQaPerFile] = useState(5);
   const [maxQa, setMaxQa] = useState(10);
+  const [enableJudge, setEnableJudge] = useState(true);
   const [strategyId, setStrategyId] = useState("sentence");
   const strategy = strategyById(strategyId)!;
   const [params, setParams] = useState<Record<string, number>>(
@@ -52,6 +53,7 @@ export default function NewRunPage() {
         top_k: topK,
         qa_per_file: qaPerFile,
         max_qa: maxQa,
+        enable_judge: enableJudge,
         combinations: combos.map((c) => ({ strategy: c.strategy, params: c.params })),
         file_ids: scope === "all" ? "all" : selected,
       }),
@@ -104,6 +106,16 @@ export default function NewRunPage() {
               Questions are auto-generated once per run (shared across all combinations). Fewer
               questions = faster &amp; fewer LLM tokens.
             </p>
+            <label className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              <input type="checkbox" className="accent-brand-600" checked={enableJudge}
+                onChange={(e) => setEnableJudge(e.target.checked)} />
+              <span className="font-medium">Run LLM judge</span>
+              <span className="text-xs text-slate-400">
+                {enableJudge
+                  ? "relevance + faithfulness (uses Groq)"
+                  : "off — fast mode: computed metrics only, no Groq judge calls"}
+              </span>
+            </label>
           </div>
 
           {/* strategy picker */}

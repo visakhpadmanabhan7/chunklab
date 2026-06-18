@@ -47,6 +47,7 @@ async def create_run(
             "combinations": [c.model_dump() for c in body.combinations],
             "qa_per_file": body.qa_per_file,
             "max_qa": body.max_qa,
+            "enable_judge": body.enable_judge,
         },
         embedding_model=settings.EMBEDDING_MODEL,
         top_k=body.top_k or settings.TOP_K,

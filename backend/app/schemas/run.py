@@ -15,6 +15,7 @@ class RunCreate(BaseModel):
     top_k: int | None = None
     qa_per_file: int | None = None   # questions generated per document
     max_qa: int | None = None        # cap on total questions for the run
+    enable_judge: bool = True        # off = fast mode: computed IR metrics only, no LLM judge
     combinations: list[CombinationSpec]
     file_ids: list[uuid.UUID] | Literal["all"] = "all"
 

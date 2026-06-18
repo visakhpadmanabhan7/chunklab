@@ -130,6 +130,7 @@ async def run_pipeline(ctx, run_id: str) -> None:
             cfg = run.config if isinstance(run.config, dict) else {}
             qa_per_file = int(cfg.get("qa_per_file") or settings.QA_PAIRS_PER_FILE)
             max_total = int(cfg.get("max_qa") or settings.MAX_QA_PAIRS_PER_RUN)
+            enable_judge = bool(cfg.get("enable_judge", True))
             for f in files:
                 if len(qa_records) >= max_total:
                     break
@@ -152,11 +153,13 @@ async def run_pipeline(ctx, run_id: str) -> None:
             questions = [qa.question for (qa, _f, _g) in qa_records]
             q_vectors = await asyncio.to_thread(embed_texts, questions) if questions else []
             await P.emit_log(run_id, f"{len(qa_records)} QA pairs ready")
+            if not enable_judge:
+                await P.emit_log(run_id, "LLM judge disabled — computed metrics only (fast mode)")
 
             total = max(len(combos), 1)
             for ci, combo in enumerate(combos):
                 await _process_combination(
-                    session, run_id, combo, files, parsed_map, qa_records, q_vectors, top_k
+                    session, run_id, combo, files, parsed_map, qa_records, q_vectors, top_k, enable_judge
                 )
                 pct = (ci + 1) / total
                 run.progress = pct
@@ -190,7 +193,7 @@ async def _load_files(session, run: Run) -> list[File]:
 
 
 async def _process_combination(
-    session, run_id, combo, files, parsed_map, qa_records, q_vectors, top_k
+    session, run_id, combo, files, parsed_map, qa_records, q_vectors, top_k, enable_judge=True
 ) -> None:
     strat = get_strategy(combo.strategy)
     combo.status = "chunking"
@@ -266,22 +269,23 @@ async def _process_combination(
         session.add(ret)
         await session.flush()
 
-        jr = await judge(qa.question, qa.reference_answer, [r.content for r in retrieved])
-        judge_in += jr.prompt_tokens
-        judge_out += jr.completion_tokens
-        je = JudgeEvaluation(
-            retrieval_id=ret.id,
-            relevance=jr.relevance,
-            faithfulness=jr.faithfulness,
-            context_precision=jr.context_precision,
-            context_recall=jr.context_recall,
-            judge_feedback=jr.feedback,
-            judge_model=settings.GROQ_MODEL,
-            judge_tokens_in=jr.prompt_tokens,
-            judge_tokens_out=jr.completion_tokens,
-        )
-        session.add(je)
-        judged.append(je)
+        if enable_judge:
+            jr = await judge(qa.question, qa.reference_answer, [r.content for r in retrieved])
+            judge_in += jr.prompt_tokens
+            judge_out += jr.completion_tokens
+            je = JudgeEvaluation(
+                retrieval_id=ret.id,
+                relevance=jr.relevance,
+                faithfulness=jr.faithfulness,
+                context_precision=jr.context_precision,
+                context_recall=jr.context_recall,
+                judge_feedback=jr.feedback,
+                judge_model=settings.GROQ_MODEL,
+                judge_tokens_in=jr.prompt_tokens,
+                judge_tokens_out=jr.completion_tokens,
+            )
+            session.add(je)
+            judged.append(je)
 
         qm = M.compute_for_query(
             [(r.id, r.content, r.file_id) for r in retrieved],

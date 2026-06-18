@@ -88,6 +88,7 @@ export interface RunCreatePayload {
   top_k?: number;
   qa_per_file?: number;
   max_qa?: number;
+  enable_judge?: boolean;
   combinations: { strategy: string; params: Record<string, unknown> }[];
   file_ids: string[] | "all";
 }
