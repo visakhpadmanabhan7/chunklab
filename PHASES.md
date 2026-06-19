@@ -35,6 +35,17 @@ Updated as we discuss more.
 
 ---
 
+## ✅ Shipped this iteration — LLM flexibility, speed, deeper results
+- **Fast mode** — per-run "Run LLM judge" toggle; off = computed IR metrics only, so a run finishes in seconds (no judge rate-limit). *(Phase 3 lever #2.)*
+- **Bring-your-own-key / multi-provider** — Groq / OpenAI / Anthropic, selectable **per area** (chat + QA-gen + judge). **Session-only named keys** (browser localStorage, never stored server-side); Settings/keys page; **per-provider pricing** in `core/pricing.py`. *(Phase 5 text-LLM portion.)*
+- **Per-question + selectable metrics** *(Phase 7)* — aggregated vs per-question results, metric multi-select, CSV in both shapes; per-question metrics persisted in `results.query_metrics`.
+- **User-provided QA** *(Phase 6)* — project QA sets (CRUD + editor), run option auto / mine / both.
+- **Robustness (bounded)** *(Phase 4)* — cancel that stops the worker mid-run, a re-run endpoint, and a **Redis-backed rate limiter**.
+
+Still open below: **Alembic migrations**, **worker fan-out/parallelization**, **pluggable embeddings** (vector-dim change), and the backlog.
+
+---
+
 ## 🔭 Phase 3 — Performance & scale (proposed)
 
 ### 3.1 Parallelize the workers  *(discussed)*

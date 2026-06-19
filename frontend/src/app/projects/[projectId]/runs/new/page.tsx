@@ -9,6 +9,7 @@ import { STRATEGIES, buildLabel, strategyById } from "@/lib/strategies";
 import { modelsFor } from "@/lib/providers";
 import { useBuilderStore } from "@/store/builder-store";
 import { useKeysStore } from "@/store/keys-store";
+import { QASetManager } from "@/components/runs/QASetManager";
 import { logger } from "@/lib/logger";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
@@ -28,6 +29,7 @@ export default function NewRunPage() {
   const llmKey = savedKeys.find((k) => k.id === llmKeyId);
   const llmModels = llmKey ? modelsFor(llmKey.provider) : [];
   const [llmModel, setLlmModel] = useState("");
+  const [qaSource, setQaSource] = useState<"auto" | "mine" | "both">("auto");
   const [strategyId, setStrategyId] = useState("sentence");
   const strategy = strategyById(strategyId)!;
   const [params, setParams] = useState<Record<string, number>>(
@@ -64,6 +66,7 @@ export default function NewRunPage() {
         ...(llmKey
           ? { provider: llmKey.provider, model: llmModel || llmModels[0], api_key: llmKey.key }
           : {}),
+        qa_source: qaSource,
         combinations: combos.map((c) => ({ strategy: c.strategy, params: c.params })),
         file_ids: scope === "all" ? "all" : selected,
       }),
@@ -149,6 +152,19 @@ export default function NewRunPage() {
               )}
               <a href="/settings" className="ml-auto text-xs text-brand-600 hover:underline">Manage keys</a>
             </div>
+            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+              <span className="text-xs uppercase tracking-wide text-slate-400">Ground truth</span>
+              <select
+                value={qaSource}
+                onChange={(e) => setQaSource(e.target.value as "auto" | "mine" | "both")}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none focus:border-brand-300"
+              >
+                <option value="auto">Auto-generate (Groq)</option>
+                <option value="mine">My QA set only</option>
+                <option value="both">Both</option>
+              </select>
+            </div>
+            {qaSource !== "auto" && <QASetManager projectId={projectId} />}
           </div>
 
           {/* strategy picker */}

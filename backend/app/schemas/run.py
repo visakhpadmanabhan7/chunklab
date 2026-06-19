@@ -19,6 +19,7 @@ class RunCreate(BaseModel):
     provider: str | None = None      # BYO LLM for QA-gen + judge (key used transiently, never stored)
     model: str | None = None
     api_key: str | None = None
+    qa_source: Literal["auto", "mine", "both"] = "auto"  # generated / user-provided / both
     combinations: list[CombinationSpec]
     file_ids: list[uuid.UUID] | Literal["all"] = "all"
 

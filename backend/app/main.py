@@ -16,6 +16,7 @@ from app.api.routers import (
     logs,
     progress,
     projects,
+    qa_sets,
     results,
     runs,
 )
@@ -83,7 +84,7 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-for r in (projects, files, runs, progress, results, analytics, chat, logs):
+for r in (projects, files, runs, progress, results, analytics, chat, logs, qa_sets):
     app.include_router(r.router, prefix=API_PREFIX)
 
 

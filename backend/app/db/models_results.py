@@ -112,6 +112,30 @@ class JudgeEvaluation(ResultsBase, TimestampMixin):
     judge_tokens_out: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class QueryMetric(ResultsBase, TimestampMixin):
+    """Per-question metrics for one combination (the disaggregated view)."""
+
+    __tablename__ = "query_metrics"
+    __table_args__ = {"schema": "results"}
+
+    id: Mapped[uuid.UUID] = _pk()
+    combination_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("core.run_combinations.id", ondelete="CASCADE"), index=True
+    )
+    qa_pair_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("results.qa_pairs.id", ondelete="CASCADE"), index=True
+    )
+    precision_at_k: Mapped[float] = mapped_column(Float, default=0.0)
+    recall_at_k: Mapped[float] = mapped_column(Float, default=0.0)
+    mrr: Mapped[float] = mapped_column(Float, default=0.0)
+    ndcg_at_k: Mapped[float] = mapped_column(Float, default=0.0)
+    f2: Mapped[float] = mapped_column(Float, default=0.0)
+    relevance: Mapped[float] = mapped_column(Float, default=0.0)
+    faithfulness: Mapped[float] = mapped_column(Float, default=0.0)
+    context_precision: Mapped[float] = mapped_column(Float, default=0.0)
+    context_recall: Mapped[float] = mapped_column(Float, default=0.0)
+
+
 class Metrics(ResultsBase, TimestampMixin):
     __tablename__ = "metrics"
     __table_args__ = {"schema": "results"}

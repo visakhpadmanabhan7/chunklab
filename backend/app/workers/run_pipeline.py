@@ -18,21 +18,22 @@ from app.core.config import get_settings
 from app.core.embedding import count_tokens, embed_texts
 from app.core.llm import get_llm
 from app.core.logging import get_logger
-from app.core.pricing import embedding_cost, groq_cost
-from app.db.models_core import File, ParsedDocument, Run, RunCombination
+from app.core.pricing import embedding_cost, llm_cost
+from app.db.models_core import File, ParsedDocument, ProjectQAPair, Run, RunCombination
 from app.db.models_results import (
     Chunk,
     CombinationStats,
     JudgeEvaluation,
     Metrics,
     QAPair,
+    QueryMetric,
     Retrieval,
 )
 from app.db.session import session_scope
 from app.services.chunking import assemble, get_strategy
 from app.services.eval import metrics as M
 from app.services.eval.judge import judge
-from app.services.eval.qa_generator import generate_qa_pairs
+from app.services.eval.qa_generator import GeneratedQA, generate_qa_pairs
 from app.services.eval.retriever import retrieve
 from app.services.parsing.service import parse_file
 from app.workers import progress as P
@@ -132,25 +133,62 @@ async def run_pipeline(ctx, run_id: str, api_key: str | None = None) -> None:
             qa_per_file = int(cfg.get("qa_per_file") or settings.QA_PAIRS_PER_FILE)
             max_total = int(cfg.get("max_qa") or settings.MAX_QA_PAIRS_PER_RUN)
             enable_judge = bool(cfg.get("enable_judge", True))
+            qa_source = cfg.get("qa_source", "auto")  # auto | mine | both
             # BYO LLM for this run (QA-gen + judge); falls back to the server Groq default.
             run_llm = get_llm(provider=cfg.get("provider"), model=cfg.get("model"), api_key=api_key)
-            for f in files:
-                if len(qa_records) >= max_total:
-                    break
-                want = min(qa_per_file, max_total - len(qa_records))
-                gen = await generate_qa_pairs(parsed_map[f.id].clean_text, want, llm=run_llm)
-                for g in gen:
+
+            # auto-generated QA
+            if qa_source in ("auto", "both"):
+                for f in files:
+                    if len(qa_records) >= max_total:
+                        break
+                    want = min(qa_per_file, max_total - len(qa_records))
+                    gen = await generate_qa_pairs(parsed_map[f.id].clean_text, want, llm=run_llm)
+                    for g in gen:
+                        qa = QAPair(
+                            run_id=rid,
+                            file_id=f.id,
+                            question=g.question,
+                            reference_answer=g.reference_answer,
+                            source_chunk_text=g.source_chunk_text,
+                            source_offset_start=g.start,
+                            source_offset_end=g.end,
+                        )
+                        session.add(qa)
+                        qa_records.append((qa, f.id, g))
+
+            # user-provided QA (gold = source_chunk_text, else the reference answer)
+            if qa_source in ("mine", "both"):
+                user_rows = (
+                    await session.execute(
+                        select(ProjectQAPair).where(ProjectQAPair.project_id == run.project_id)
+                    )
+                ).scalars().all()
+                by_name = {f.filename: f.id for f in files}
+                default_fid = files[0].id
+                for r in user_rows:
+                    if len(qa_records) >= max_total:
+                        break
+                    fid = by_name.get(r.source_file or "", default_fid)
+                    gold = r.source_chunk_text or r.reference_answer
+                    g = GeneratedQA(
+                        question=r.question,
+                        reference_answer=r.reference_answer,
+                        source_chunk_text=gold,
+                        start=0,
+                        end=len(gold),
+                    )
                     qa = QAPair(
                         run_id=rid,
-                        file_id=f.id,
-                        question=g.question,
-                        reference_answer=g.reference_answer,
-                        source_chunk_text=g.source_chunk_text,
-                        source_offset_start=g.start,
-                        source_offset_end=g.end,
+                        file_id=fid,
+                        question=r.question,
+                        reference_answer=r.reference_answer,
+                        source_chunk_text=gold,
+                        source_offset_start=0,
+                        source_offset_end=len(gold),
                     )
                     session.add(qa)
-                    qa_records.append((qa, f.id, g))
+                    qa_records.append((qa, fid, g))
             await session.commit()
 
             questions = [qa.question for (qa, _f, _g) in qa_records]
@@ -161,6 +199,14 @@ async def run_pipeline(ctx, run_id: str, api_key: str | None = None) -> None:
 
             total = max(len(combos), 1)
             for ci, combo in enumerate(combos):
+                # cooperative cancel: stop between combinations if the run was canceled
+                current = (
+                    await session.execute(select(Run.status).where(Run.id == rid))
+                ).scalar_one_or_none()
+                if current == "canceled":
+                    await P.emit_run(run_id, "canceled", run.progress or 0.0)
+                    await P.emit_log(run_id, "Run canceled — stopping", level="warning")
+                    return
                 await _process_combination(
                     session, run_id, combo, files, parsed_map, qa_records, q_vectors, top_k, enable_judge, run_llm
                 )
@@ -272,6 +318,7 @@ async def _process_combination(
         session.add(ret)
         await session.flush()
 
+        jr_dims = (0.0, 0.0, 0.0, 0.0)
         if enable_judge:
             jr = await judge(qa.question, qa.reference_answer, [r.content for r in retrieved], llm=llm)
             judge_in += jr.prompt_tokens
@@ -289,6 +336,7 @@ async def _process_combination(
             )
             session.add(je)
             judged.append(je)
+            jr_dims = (jr.relevance, jr.faithfulness, jr.context_precision, jr.context_recall)
 
         qm = M.compute_for_query(
             [(r.id, r.content, r.file_id) for r in retrieved],
@@ -297,6 +345,22 @@ async def _process_combination(
             top_k,
         )
         per_query.append(qm)
+        # persist the per-question metrics for the disaggregated results view
+        session.add(
+            QueryMetric(
+                combination_id=combo.id,
+                qa_pair_id=qa.id,
+                precision_at_k=qm.precision_at_k,
+                recall_at_k=qm.recall_at_k,
+                mrr=qm.mrr,
+                ndcg_at_k=qm.ndcg_at_k,
+                f2=qm.f2,
+                relevance=jr_dims[0],
+                faithfulness=jr_dims[1],
+                context_precision=jr_dims[2],
+                context_recall=jr_dims[3],
+            )
+        )
         # evaluation occupies the second half of the combo's progress bar
         await P.emit_combo(run_id, str(combo.id), combo.label, "evaluating", 0.5 + 0.5 * (qi + 1) / n_qa)
 
@@ -304,7 +368,9 @@ async def _process_combination(
 
     # ---- aggregate stats + metrics ----
     e_cost = embedding_cost(total_tokens)
-    j_cost = groq_cost(judge_in, judge_out)
+    j_cost = llm_cost(
+        getattr(llm, "name", "groq"), getattr(llm, "model", ""), judge_in, judge_out
+    )
     session.add(
         CombinationStats(
             combination_id=combo.id,

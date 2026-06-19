@@ -118,3 +118,19 @@ class RunCombination(CoreBase, TimestampMixin):
     progress: Mapped[float] = mapped_column(default=0.0)
 
     run: Mapped["Run"] = relationship(back_populates="combinations")
+
+
+class ProjectQAPair(CoreBase, TimestampMixin):
+    """User-provided QA ground truth, reusable across runs in a project."""
+
+    __tablename__ = "project_qa_pairs"
+    __table_args__ = {"schema": "core"}
+
+    id: Mapped[uuid.UUID] = _pk()
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("core.projects.id", ondelete="CASCADE"), index=True
+    )
+    question: Mapped[str] = mapped_column(Text)
+    reference_answer: Mapped[str] = mapped_column(Text)
+    source_file: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    source_chunk_text: Mapped[str | None] = mapped_column(Text, nullable=True)

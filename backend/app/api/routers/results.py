@@ -5,8 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_session
-from app.db.models_core import Run
-from app.db.models_results import Chunk, QAPair
+from app.db.models_core import Run, RunCombination
+from app.db.models_results import Chunk, QAPair, QueryMetric
 from app.services.reporting import build_run_report
 
 router = APIRouter(tags=["results"])
@@ -51,6 +51,41 @@ async def combination_chunks(
             "char_count": r.char_count,
         }
         for r in rows
+    ]
+
+
+@router.get("/runs/{run_id}/per-question")
+async def run_per_question(run_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    """Disaggregated results — one row per (combination × question)."""
+    stmt = (
+        select(
+            RunCombination.label,
+            RunCombination.strategy,
+            QAPair.question,
+            QueryMetric,
+        )
+        .join(QueryMetric, QueryMetric.combination_id == RunCombination.id)
+        .join(QAPair, QAPair.id == QueryMetric.qa_pair_id)
+        .where(RunCombination.run_id == run_id)
+        .order_by(RunCombination.label, QAPair.created_at)
+    )
+    rows = (await session.execute(stmt)).all()
+    return [
+        {
+            "label": label,
+            "strategy": strategy,
+            "question": question,
+            "precision_at_k": m.precision_at_k,
+            "recall_at_k": m.recall_at_k,
+            "mrr": m.mrr,
+            "ndcg_at_k": m.ndcg_at_k,
+            "f2": m.f2,
+            "relevance": m.relevance,
+            "faithfulness": m.faithfulness,
+            "context_precision": m.context_precision,
+            "context_recall": m.context_recall,
+        }
+        for (label, strategy, question, m) in rows
     ]
 
 

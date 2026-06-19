@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { BarChart3, FlaskConical, GitCompare, MessageSquare, MessageSquareText } from "lucide-react";
-import { getRun, listRuns } from "@/lib/api";
+import { useParams, useRouter } from "next/navigation";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { BarChart3, FlaskConical, GitCompare, MessageSquare, MessageSquareText, RefreshCw } from "lucide-react";
+import { getRun, listRuns, rerunRun } from "@/lib/api";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
@@ -24,6 +24,11 @@ export default function RunDetailPage() {
   });
   const { data: runs } = useQuery({ queryKey: ["runs", projectId], queryFn: () => listRuns(projectId) });
   const [tab, setTab] = useState<"analytics" | "qa" | "chat">("analytics");
+  const router = useRouter();
+  const rerun = useMutation({
+    mutationFn: () => rerunRun(runId),
+    onSuccess: (r) => router.push(`/projects/${projectId}/runs/${r.id}`),
+  });
 
   if (isLoading) return <div className="h-40 skeleton" />;
   if (isError || !run)
@@ -50,6 +55,11 @@ export default function RunDetailPage() {
         actions={
           <div className="flex items-center gap-2">
             <Badge status={run.status}>{run.status}</Badge>
+            {["completed", "failed", "canceled"].includes(run.status) && (
+              <button className="btn-secondary" onClick={() => rerun.mutate()} disabled={rerun.isPending}>
+                <RefreshCw className="h-4 w-4" /> Re-run
+              </button>
+            )}
             {run.status === "completed" && otherRuns.length > 0 && (
               <Link
                 href={`/projects/${projectId}/runs/${runId}/compare?with=${otherRuns[0].id}`}

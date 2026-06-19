@@ -50,6 +50,7 @@ async def create_run(
             "enable_judge": body.enable_judge,
             "provider": body.provider,
             "model": body.model,
+            "qa_source": body.qa_source,
         },
         embedding_model=settings.EMBEDDING_MODEL,
         top_k=body.top_k or settings.TOP_K,
@@ -130,3 +131,49 @@ async def delete_run(run_id: uuid.UUID, session: AsyncSession = Depends(get_sess
     await session.delete(run)  # cascades combinations + all results.* rows
     await session.commit()
     logger.warning("run deleted id=%s", run_id)
+
+
+@router.post("/runs/{run_id}/rerun", response_model=RunOut, status_code=201)
+@limiter.limit("30/minute")
+async def rerun(
+    request: Request,
+    run_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    arq=Depends(get_arq),
+):
+    original = await session.get(Run, run_id)
+    if not original:
+        raise HTTPException(404, "Run not found")
+    cfg = original.config if isinstance(original.config, dict) else {}
+    try:
+        combos = expand([dict(s) for s in (cfg.get("combinations") or [])])
+    except KeyError as exc:
+        raise HTTPException(400, str(exc))
+    if not combos:
+        raise HTTPException(400, "Original run has no combinations to re-run")
+
+    # Re-run reuses the stored config; BYO keys are session-only and not stored,
+    # so a re-run uses the server default key (a non-Groq provider needs a re-launch).
+    new = Run(
+        project_id=original.project_id,
+        name=f"{original.name} (re-run)",
+        config=cfg,
+        embedding_model=original.embedding_model,
+        top_k=original.top_k,
+        status="queued",
+        total_combinations=len(combos),
+    )
+    session.add(new)
+    await session.flush()
+    for c in combos:
+        session.add(
+            RunCombination(
+                run_id=new.id, strategy=c.strategy, params=c.params, label=c.label, status="queued"
+            )
+        )
+    await session.commit()
+    await session.refresh(new)
+
+    await arq.enqueue_job("run_pipeline", str(new.id), None)
+    logger.info("run re-run id=%s from=%s combos=%d", new.id, run_id, len(combos))
+    return RunOut.model_validate(new)

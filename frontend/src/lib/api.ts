@@ -92,6 +92,7 @@ export interface RunCreatePayload {
   provider?: string;
   model?: string;
   api_key?: string;
+  qa_source?: "auto" | "mine" | "both";
   combinations: { strategy: string; params: Record<string, unknown> }[];
   file_ids: string[] | "all";
 }
@@ -106,6 +107,40 @@ export const cancelRun = (id: string) =>
   req<Run>(`/runs/${id}/cancel`, { method: "POST" });
 export const deleteRun = (id: string) =>
   req<void>(`/runs/${id}`, { method: "DELETE" });
+export const rerunRun = (id: string) => req<Run>(`/runs/${id}/rerun`, { method: "POST" });
+
+// ---- per-question results (Phase 7) ----
+export interface PerQuestionRow {
+  label: string;
+  strategy: string;
+  question: string;
+  precision_at_k: number;
+  recall_at_k: number;
+  mrr: number;
+  ndcg_at_k: number;
+  f2: number;
+  relevance: number;
+  faithfulness: number;
+  context_precision: number;
+  context_recall: number;
+}
+export const getPerQuestion = (runId: string) =>
+  req<PerQuestionRow[]>(`/runs/${runId}/per-question`);
+
+// ---- user-provided QA set (Phase 6) ----
+export interface ProjectQAItem {
+  id?: string;
+  question: string;
+  reference_answer: string;
+  source_file?: string | null;
+  source_chunk_text?: string | null;
+}
+export const listProjectQA = (pid: string) =>
+  req<ProjectQAItem[]>(`/projects/${pid}/qa-set`);
+export const addProjectQA = (pid: string, items: ProjectQAItem[]) =>
+  req<ProjectQAItem[]>(`/projects/${pid}/qa-set`, { method: "POST", body: JSON.stringify(items) });
+export const deleteProjectQA = (id: string) =>
+  req<void>(`/qa-set/${id}`, { method: "DELETE" });
 
 // ---- results / analytics ----
 export const getResults = (runId: string) => req<RunResults>(`/runs/${runId}/results`);
