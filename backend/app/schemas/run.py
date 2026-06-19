@@ -16,6 +16,9 @@ class RunCreate(BaseModel):
     qa_per_file: int | None = None   # questions generated per document
     max_qa: int | None = None        # cap on total questions for the run
     enable_judge: bool = True        # off = fast mode: computed IR metrics only, no LLM judge
+    provider: str | None = None      # BYO LLM for QA-gen + judge (key used transiently, never stored)
+    model: str | None = None
+    api_key: str | None = None
     combinations: list[CombinationSpec]
     file_ids: list[uuid.UUID] | Literal["all"] = "all"
 

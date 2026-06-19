@@ -16,6 +16,7 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.embedding import count_tokens, embed_texts
+from app.core.llm import get_llm
 from app.core.logging import get_logger
 from app.core.pricing import embedding_cost, groq_cost
 from app.db.models_core import File, ParsedDocument, Run, RunCombination
@@ -86,7 +87,7 @@ async def parse_file_task(ctx, file_id: str) -> None:
             await session.commit()
 
 
-async def run_pipeline(ctx, run_id: str) -> None:
+async def run_pipeline(ctx, run_id: str, api_key: str | None = None) -> None:
     rid = uuid.UUID(run_id)
     async with session_scope() as session:
         run = await session.get(Run, rid)
@@ -131,11 +132,13 @@ async def run_pipeline(ctx, run_id: str) -> None:
             qa_per_file = int(cfg.get("qa_per_file") or settings.QA_PAIRS_PER_FILE)
             max_total = int(cfg.get("max_qa") or settings.MAX_QA_PAIRS_PER_RUN)
             enable_judge = bool(cfg.get("enable_judge", True))
+            # BYO LLM for this run (QA-gen + judge); falls back to the server Groq default.
+            run_llm = get_llm(provider=cfg.get("provider"), model=cfg.get("model"), api_key=api_key)
             for f in files:
                 if len(qa_records) >= max_total:
                     break
                 want = min(qa_per_file, max_total - len(qa_records))
-                gen = await generate_qa_pairs(parsed_map[f.id].clean_text, want)
+                gen = await generate_qa_pairs(parsed_map[f.id].clean_text, want, llm=run_llm)
                 for g in gen:
                     qa = QAPair(
                         run_id=rid,
@@ -159,7 +162,7 @@ async def run_pipeline(ctx, run_id: str) -> None:
             total = max(len(combos), 1)
             for ci, combo in enumerate(combos):
                 await _process_combination(
-                    session, run_id, combo, files, parsed_map, qa_records, q_vectors, top_k, enable_judge
+                    session, run_id, combo, files, parsed_map, qa_records, q_vectors, top_k, enable_judge, run_llm
                 )
                 pct = (ci + 1) / total
                 run.progress = pct
@@ -193,7 +196,7 @@ async def _load_files(session, run: Run) -> list[File]:
 
 
 async def _process_combination(
-    session, run_id, combo, files, parsed_map, qa_records, q_vectors, top_k, enable_judge=True
+    session, run_id, combo, files, parsed_map, qa_records, q_vectors, top_k, enable_judge=True, llm=None
 ) -> None:
     strat = get_strategy(combo.strategy)
     combo.status = "chunking"
@@ -270,7 +273,7 @@ async def _process_combination(
         await session.flush()
 
         if enable_judge:
-            jr = await judge(qa.question, qa.reference_answer, [r.content for r in retrieved])
+            jr = await judge(qa.question, qa.reference_answer, [r.content for r in retrieved], llm=llm)
             judge_in += jr.prompt_tokens
             judge_out += jr.completion_tokens
             je = JudgeEvaluation(
@@ -280,7 +283,7 @@ async def _process_combination(
                 context_precision=jr.context_precision,
                 context_recall=jr.context_recall,
                 judge_feedback=jr.feedback,
-                judge_model=settings.GROQ_MODEL,
+                judge_model=getattr(llm, "model", settings.GROQ_MODEL),
                 judge_tokens_in=jr.prompt_tokens,
                 judge_tokens_out=jr.completion_tokens,
             )

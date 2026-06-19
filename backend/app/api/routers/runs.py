@@ -48,6 +48,8 @@ async def create_run(
             "qa_per_file": body.qa_per_file,
             "max_qa": body.max_qa,
             "enable_judge": body.enable_judge,
+            "provider": body.provider,
+            "model": body.model,
         },
         embedding_model=settings.EMBEDDING_MODEL,
         top_k=body.top_k or settings.TOP_K,
@@ -66,7 +68,8 @@ async def create_run(
     await session.commit()
     await session.refresh(run)
 
-    await arq.enqueue_job("run_pipeline", str(run.id))
+    # api_key travels via the job payload (Redis, transient) — never written to the DB.
+    await arq.enqueue_job("run_pipeline", str(run.id), body.api_key)
     logger.info("run created id=%s name=%r combos=%d", run.id, body.name, len(combos))
     return RunOut.model_validate(run)
 

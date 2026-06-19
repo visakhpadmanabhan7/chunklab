@@ -16,3 +16,7 @@ class ChatRequest(BaseModel):
     run_ids: list[uuid.UUID] | None = None
     message: str
     history: list[ChatMessage] = []
+    # Optional bring-your-own LLM for this request (key used transiently, never stored).
+    provider: str | None = None
+    model: str | None = None
+    api_key: str | None = None

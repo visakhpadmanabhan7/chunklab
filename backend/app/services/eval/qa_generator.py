@@ -44,8 +44,8 @@ def _sample_passages(text: str, n: int, window: int = 900) -> list[tuple[int, st
     return passages
 
 
-async def generate_qa_pairs(text: str, n: int) -> list[GeneratedQA]:
-    llm = get_llm()
+async def generate_qa_pairs(text: str, n: int, llm=None) -> list[GeneratedQA]:
+    llm = llm or get_llm()
     out: list[GeneratedQA] = []
     for start, passage in _sample_passages(text, n):
         try:

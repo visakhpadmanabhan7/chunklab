@@ -28,14 +28,14 @@ def _clamp(v) -> float:
         return 0.0
 
 
-async def judge(question: str, reference_answer: str, contexts: list[str]) -> JudgeResult:
+async def judge(question: str, reference_answer: str, contexts: list[str], llm=None) -> JudgeResult:
     numbered = "\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(contexts)) or "(none)"
     user_input = (
         f"QUESTION:\n{question}\n\n"
         f"REFERENCE ANSWER:\n{reference_answer}\n\n"
         f"CONTEXT:\n{numbered}"
     )
-    llm = get_llm()
+    llm = llm or get_llm()
     try:
         result = await llm.extract(JUDGE_PROMPT, user_input)
         data = parse_json(result.content)

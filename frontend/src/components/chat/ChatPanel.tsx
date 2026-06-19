@@ -1,9 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { Bot, Send, Sparkles } from "lucide-react";
 import { chatStream, type ChatPayload } from "@/lib/api";
 import { logger } from "@/lib/logger";
+import { useKeysStore } from "@/store/keys-store";
+import { modelsFor } from "@/lib/providers";
 import { Spinner } from "@/components/ui/Spinner";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -43,6 +46,13 @@ export function ChatPanel({
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // bring-your-own-key picker: "server" = default Groq, else a saved key id
+  const savedKeys = useKeysStore((s) => s.keys);
+  const [keyId, setKeyId] = useState("server");
+  const selKey = savedKeys.find((k) => k.id === keyId);
+  const models = selKey ? modelsFor(selKey.provider) : [];
+  const [model, setModel] = useState("");
+
   async function send(text: string) {
     text = text.trim();
     if (!text || sending || !canSend) return;
@@ -54,6 +64,11 @@ export function ChatPanel({
     const payload: ChatPayload = { scope, message: text, history, project_id: projectId };
     if (scope === "run") payload.run_id = runId;
     if (scope === "compare") payload.run_ids = runIds;
+    if (selKey) {
+      payload.provider = selKey.provider;
+      payload.model = model || models[0];
+      payload.api_key = selKey.key;
+    }
     try {
       const res = await chatStream(payload);
       if (!res.ok || !res.body) throw new Error(await res.text());
@@ -84,6 +99,29 @@ export function ChatPanel({
 
   return (
     <div className={`flex flex-col ${heightClass}`}>
+      <div className="mb-2 flex items-center gap-2 text-xs">
+        <span className="text-slate-400">Model</span>
+        <select
+          value={keyId}
+          onChange={(e) => { setKeyId(e.target.value); setModel(""); }}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-600 outline-none focus:border-brand-300"
+        >
+          <option value="server">Server default (Groq)</option>
+          {savedKeys.map((k) => (
+            <option key={k.id} value={k.id}>{k.label} · {k.provider}</option>
+          ))}
+        </select>
+        {selKey && models.length > 0 && (
+          <select
+            value={model || models[0]}
+            onChange={(e) => setModel(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-600 outline-none focus:border-brand-300"
+          >
+            {models.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        )}
+        <Link href="/settings" className="ml-auto text-brand-600 hover:underline">Manage keys</Link>
+      </div>
       <div ref={scrollRef} className="card flex-1 space-y-5 overflow-auto p-6">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">

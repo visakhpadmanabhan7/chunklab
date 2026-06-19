@@ -9,6 +9,8 @@ sse-starlette
 
 # llm + embeddings
 groq
+openai
+anthropic
 fastembed>=0.4
 transformers>=4.46,<5   # docling 2.x needs the transformers 4.x API (5.x breaks it)
 tokenizers

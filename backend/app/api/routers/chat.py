@@ -37,7 +37,14 @@ async def chat_stream(
     history = [m.model_dump() for m in body.history]
 
     async def token_stream():
-        async for token in stream_answer(context, body.message, history):
-            yield token
+        try:
+            async for token in stream_answer(
+                context, body.message, history,
+                provider=body.provider, model=body.model, api_key=body.api_key,
+            ):
+                yield token
+        except Exception as exc:  # surface provider/key errors in the stream, don't hang
+            logger.warning("chat stream failed (provider=%s): %s", body.provider or "groq", exc)
+            yield f"\n\n⚠️ LLM error ({body.provider or 'groq'}): {exc}"
 
     return StreamingResponse(token_stream(), media_type="text/plain; charset=utf-8")

@@ -6,7 +6,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Layers, Plus, Rocket, X } from "lucide-react";
 import { createRun, listFiles } from "@/lib/api";
 import { STRATEGIES, buildLabel, strategyById } from "@/lib/strategies";
+import { modelsFor } from "@/lib/providers";
 import { useBuilderStore } from "@/store/builder-store";
+import { useKeysStore } from "@/store/keys-store";
 import { logger } from "@/lib/logger";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
@@ -21,6 +23,11 @@ export default function NewRunPage() {
   const [qaPerFile, setQaPerFile] = useState(5);
   const [maxQa, setMaxQa] = useState(10);
   const [enableJudge, setEnableJudge] = useState(true);
+  const savedKeys = useKeysStore((s) => s.keys);
+  const [llmKeyId, setLlmKeyId] = useState("server");
+  const llmKey = savedKeys.find((k) => k.id === llmKeyId);
+  const llmModels = llmKey ? modelsFor(llmKey.provider) : [];
+  const [llmModel, setLlmModel] = useState("");
   const [strategyId, setStrategyId] = useState("sentence");
   const strategy = strategyById(strategyId)!;
   const [params, setParams] = useState<Record<string, number>>(
@@ -54,6 +61,9 @@ export default function NewRunPage() {
         qa_per_file: qaPerFile,
         max_qa: maxQa,
         enable_judge: enableJudge,
+        ...(llmKey
+          ? { provider: llmKey.provider, model: llmModel || llmModels[0], api_key: llmKey.key }
+          : {}),
         combinations: combos.map((c) => ({ strategy: c.strategy, params: c.params })),
         file_ids: scope === "all" ? "all" : selected,
       }),
@@ -112,10 +122,33 @@ export default function NewRunPage() {
               <span className="font-medium">Run LLM judge</span>
               <span className="text-xs text-slate-400">
                 {enableJudge
-                  ? "relevance + faithfulness (uses Groq)"
-                  : "off — fast mode: computed metrics only, no Groq judge calls"}
+                  ? "relevance + faithfulness (uses the LLM below)"
+                  : "off — fast mode: computed metrics only, no judge calls"}
               </span>
             </label>
+            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+              <span className="text-xs uppercase tracking-wide text-slate-400">LLM · QA gen + judge</span>
+              <select
+                value={llmKeyId}
+                onChange={(e) => { setLlmKeyId(e.target.value); setLlmModel(""); }}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none focus:border-brand-300"
+              >
+                <option value="server">Server default (Groq)</option>
+                {savedKeys.map((k) => (
+                  <option key={k.id} value={k.id}>{k.label} · {k.provider}</option>
+                ))}
+              </select>
+              {llmKey && llmModels.length > 0 && (
+                <select
+                  value={llmModel || llmModels[0]}
+                  onChange={(e) => setLlmModel(e.target.value)}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 outline-none focus:border-brand-300"
+                >
+                  {llmModels.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              )}
+              <a href="/settings" className="ml-auto text-xs text-brand-600 hover:underline">Manage keys</a>
+            </div>
           </div>
 
           {/* strategy picker */}

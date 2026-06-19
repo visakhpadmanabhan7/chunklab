@@ -49,6 +49,12 @@ Ports: **3000** frontend · **8000** backend · **5432** postgres · **6379** re
 - Schema/table changes: edit `app/db/models_*.py`; `app/db/setup_db.py`
   (`init_db`) creates everything idempotently at startup (no Alembic in v0.1).
 
+## Editing workflow
+- When making **independent edits across multiple files**, dispatch them to
+  **subagents in parallel** (one Agent per file/area) instead of editing
+  sequentially — it's faster and keeps each change self-contained. Keep edits
+  single-threaded only when they must happen in a specific order or share state.
+
 ## Secrets
 The real Groq key lives in a **gitignored `.env`** (copied from `.env.example`).
 NEVER commit `.env` or hardcode keys. The repo is private. See `docs/SECURITY.md`.

@@ -10,6 +10,7 @@ import {
   FileText,
   FlaskConical,
   Info,
+  KeyRound,
   LayoutDashboard,
   MessageSquare,
   type LucideIcon,
@@ -101,6 +102,7 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-slate-200/70 px-3 py-3">
+        <NavItem href="/settings" label="API keys" icon={KeyRound} active={pathname.startsWith("/settings")} />
         <NavItem href="/about" label="About & docs" icon={Info} active={pathname === "/about"} />
         <p className="px-3 pt-2 text-[11px] text-slate-400">Groq · pgvector · FastEmbed</p>
       </div>

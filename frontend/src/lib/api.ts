@@ -89,6 +89,9 @@ export interface RunCreatePayload {
   qa_per_file?: number;
   max_qa?: number;
   enable_judge?: boolean;
+  provider?: string;
+  model?: string;
+  api_key?: string;
   combinations: { strategy: string; params: Record<string, unknown> }[];
   file_ids: string[] | "all";
 }
@@ -138,6 +141,10 @@ export interface ChatPayload {
   run_ids?: string[];
   message: string;
   history: { role: "user" | "assistant"; content: string }[];
+  // optional bring-your-own LLM (key used per request, never stored server-side)
+  provider?: string;
+  model?: string;
+  api_key?: string;
 }
 export async function chatStream(payload: ChatPayload): Promise<Response> {
   return fetch(`${V1}/chat/stream`, {
