@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>chunklab — Retrieval &amp; Evaluation</title>
+<style>
+  :root { --brand:#2563eb; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc; --code:#0b1220; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); }
+  .wrap { max-width:880px; margin:0 auto; padding:0 24px 80px; }
+  header.hero { background:linear-gradient(120deg,#2563eb,#0ea5e9); color:#fff; padding:44px 24px; margin-bottom:28px; }
+  header.hero .inner { max-width:880px; margin:0 auto; }
+  header.hero h1 { margin:0 0 6px; font-size:30px; }
+  header.hero p { margin:0; opacity:.92; max-width:680px; }
+  nav.toc { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin-bottom:28px; }
+  nav.toc strong { display:block; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+  nav.toc a { display:inline-block; margin:3px 14px 3px 0; color:var(--brand); text-decoration:none; font-size:14px; }
+  nav.toc a:hover { text-decoration:underline; }
+  section { background:#fff; border:1px solid var(--line); border-radius:12px; padding:24px 26px; margin-bottom:20px; }
+  h2 { margin:0 0 14px; font-size:21px; border-bottom:2px solid var(--brand); display:inline-block; padding-bottom:4px; }
+  h3 { margin:22px 0 8px; font-size:16px; color:#1e293b; }
+  p, li { color:#334155; }
+  code { background:#eef2ff; color:#3730a3; padding:1px 6px; border-radius:5px; font-size:13px; font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; }
+  pre { background:var(--code); color:#e2e8f0; padding:16px 18px; border-radius:10px; overflow-x:auto; font-size:13px; line-height:1.55; }
+  pre code { background:none; color:inherit; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:14px; }
+  th, td { border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top; }
+  th { background:#f1f5f9; font-weight:600; }
+  .step { border-left:3px solid var(--brand); padding:4px 0 4px 16px; margin:14px 0; }
+  .formula { background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px; padding:12px 14px; margin:10px 0; font-size:14px; }
+  .note { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px 14px; color:#1e3a8a; font-size:14px; }
+  footer { color:var(--muted); font-size:13px; text-align:center; margin-top:30px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="inner">
+    <h1>Retrieval &amp; Evaluation</h1>
+    <p>How chunklab forms its questions, what retrieves them against the chunks, and how each chunking
+    combination is scored. This mirrors the product-assistant knowledge base
+    (<code>04_qa_generation_and_evaluation.md</code>, <code>05_retrieval_and_vector_search.md</code>).</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="toc">
+    <strong>Contents</strong>
+    <a href="#overview">Overview</a>
+    <a href="#embeddings">Embeddings</a>
+    <a href="#qa">QA generation</a>
+    <a href="#retriever">The retriever</a>
+    <a href="#scoring">Scoring</a>
+    <a href="#aggregation">Aggregation</a>
+    <a href="#example">Worked example</a>
+  </nav>
+
+  <section id="overview">
+    <h2>Overview</h2>
+    <p>To compare chunking strategies fairly, chunklab builds <b>one shared QA set</b> from your
+    documents, then makes every combination answer the <i>same</i> questions against the <i>same</i>
+    documents. Any difference in score is therefore attributable to the chunking strategy itself.</p>
+    <p>The pipeline for each question is: <b>embed → retrieve top-k → score</b>. Scoring is done two
+    independent ways — an LLM-as-judge (semantic) and computed IR metrics (objective, vs a gold
+    passage) — then macro-averaged into one scoreboard row per combination.</p>
+  </section>
+
+  <section id="embeddings">
+    <h2>Embeddings — what the vectors are</h2>
+    <p>Code: <code>app/core/embedding.py</code>. chunklab embeds with <b>FastEmbed</b> running
+    <b>BAAI/bge-small-en-v1.5</b> — a local, 384-dimensional sentence-embedding model (CPU/ONNX, no
+    API call, downloaded once to a shared cache). FastEmbed L2-normalizes BGE vectors, so cosine
+    distance is exact.</p>
+    <table>
+      <tr><th>Function</th><th>Purpose</th></tr>
+      <tr><td><code>embed_texts(texts) → list[list[float]]</code></td><td>Batch-embed chunks at indexing time</td></tr>
+      <tr><td><code>embed_query(text) → list[float]</code></td><td>Embed a single question at retrieval time</td></tr>
+    </table>
+    <p>The dimension is fixed at <code>EMBEDDING_DIM = 384</code> and must match the <code>vector(384)</code>
+    columns and the HNSW index.</p>
+  </section>
+
+  <section id="qa">
+    <h2>QA generation — how the questions are formed</h2>
+    <p>Code: <code>app/services/eval/qa_generator.py</code>; prompt <code>QA_GENERATOR_PROMPT</code>.</p>
+    <div class="step"><b>1. Sample passages.</b> <code>_sample_passages(text, n, window=900)</code> cuts up
+    to <code>n</code> evenly-spaced ~900-character windows across the parsed document, so questions
+    cover the whole file rather than only the start.</div>
+    <div class="step"><b>2. Generate one QA pair per passage.</b> For each passage the LLM (Groq
+    <code>llama-3.3-70b-versatile</code> by default) returns strict JSON
+    <code>{"question": "...", "reference_answer": "..."}</code> — a specific factual question
+    answerable from the passage alone, with a grounded reference answer (no yes/no questions).</div>
+    <div class="step"><b>3. Keep the gold span.</b> Each result is a <code>GeneratedQA</code> holding the
+    question, reference answer, and the <b>source passage</b> + character offsets. That passage is the
+    ground truth for the computed metrics. Stored as <code>results.qa_pairs</code>.</div>
+    <div class="note"><b>How many?</b> <code>QA_PAIRS_PER_FILE</code> (default 8) per file, capped by
+    <code>MAX_QA_PAIRS_PER_RUN</code> (default 10). The set is generated <b>once per run</b> and reused
+    by every combination — that is what makes the comparison fair. You can also supply your own QA
+    (auto / mine / both).</div>
+  </section>
+
+  <section id="retriever">
+    <h2>The retriever — what matches the question to chunks</h2>
+    <p>Code: <code>app/services/eval/retriever.py</code>, function
+    <code>retrieve(session, combination_id, query_vector, k)</code>.</p>
+    <div class="step"><b>1.</b> Embed the question into a 384-d query vector (<code>embed_query</code>).</div>
+    <div class="step"><b>2.</b> Run a pgvector cosine nearest-neighbour query <b>scoped to one
+    combination</b>:</div>
+<pre><code>SELECT id, file_id, content, embedding &lt;=&gt; :qvec AS distance
+FROM results.chunks
+WHERE combination_id = :cid
+ORDER BY distance      -- smallest cosine distance first
+LIMIT :k;              -- k = run.top_k (default 5)</code></pre>
+    <p>In SQLAlchemy: <code>Chunk.embedding.cosine_distance(query_vector)</code>, ordered ascending,
+    limited to <code>k</code>.</p>
+    <div class="step"><b>3.</b> Convert distance to relevance:
+    <code>relevance = max(0, 1 − distance)</code> (≈ cosine similarity, 0..1).</div>
+    <div class="step"><b>4.</b> Return the top-k chunks; persist the retrieved ids + scores as
+    <code>results.retrievals</code>.</div>
+    <p>An <b>HNSW</b> index (<code>vector_cosine_ops</code>, <code>m=16, ef_construction=64</code>) makes
+    the search fast and supports inserts without retraining. Filtering by <code>combination_id</code>
+    is what keeps the comparison fair: each combination is only ever searched against its own chunks.</p>
+    <div class="note">The <b>same</b> retriever powers three things: evaluation (below), the analyst
+    chatbot (over a run's best combination), and the product assistant (over chunklab's own docs in
+    <code>results.doc_chunks</code>).</div>
+  </section>
+
+  <section id="scoring">
+    <h2>Scoring the retrieval</h2>
+
+    <h3>(a) LLM-as-judge — <code>app/services/eval/judge.py</code></h3>
+    <p>The judge LLM receives the QUESTION, the REFERENCE ANSWER, and the numbered retrieved CONTEXT
+    chunks, and returns strict JSON scoring four dimensions 0.0–1.0:</p>
+    <table>
+      <tr><th>Dimension</th><th>Meaning</th></tr>
+      <tr><td><code>relevance</code></td><td>Are the retrieved chunks on-topic for the question?</td></tr>
+      <tr><td><code>faithfulness</code></td><td>Is the reference answer derivable from the context?</td></tr>
+      <tr><td><code>context_precision</code></td><td>What fraction of retrieved chunks are useful?</td></tr>
+      <tr><td><code>context_recall</code></td><td>Does the context contain everything needed to answer?</td></tr>
+    </table>
+    <p>Scores are clamped to [0,1]; feedback + token usage are kept. Stored as
+    <code>results.judge_evaluations</code>.</p>
+
+    <h3>(b) Computed IR metrics — <code>app/services/eval/metrics.py</code></h3>
+    <p>Objective metrics vs the <b>gold passage</b> (no LLM). A retrieved chunk is <b>relevant</b> when
+    it is from the same file as the gold passage AND its word-set overlaps the gold passage by ≥
+    <code>RELEVANCE_THRESHOLD</code> (0.5). With one gold passage per question there is a single
+    relevant target.</p>
+    <div class="formula"><b>precision@k</b> = (# relevant retrieved) / k</div>
+    <div class="formula"><b>recall@k</b> = 1.0 if any relevant chunk retrieved, else 0.0 (single gold)</div>
+    <div class="formula"><b>MRR</b> = 1 / (rank of first relevant chunk), else 0</div>
+    <div class="formula"><b>nDCG@k</b> = DCG / IDCG, &nbsp; DCG = Σ 1/log₂(rank+1) over relevant hits,
+    IDCG = ideal ordering (guarantees nDCG ≤ 1)</div>
+    <div class="formula"><b>F2</b> = (5·P·R) / (4·P + R) &nbsp; — weights recall above precision</div>
+  </section>
+
+  <section id="aggregation">
+    <h2>Aggregation</h2>
+    <p>Per-question results are stored as <code>results.query_metrics</code> (the disaggregated /
+    per-question view), then <b>macro-averaged</b> across all questions into one
+    <code>results.metrics</code> row per combination — the judged means + computed-IR means +
+    <code>avg_retrieval_latency_ms</code>. Token/cost/latency totals land in
+    <code>results.combination_stats</code>. The analytics dashboard, the comparison view, and the
+    analyst chatbot all read from these aggregated tables.</p>
+  </section>
+
+  <section id="example">
+    <h2>Worked example</h2>
+    <p>Combination <code>sentence·512/20</code>, question <i>“What retry settings does the client
+    use?”</i>, gold passage in <code>client.md</code>:</p>
+    <ol>
+      <li>The question is embedded; pgvector returns the 5 nearest chunks from
+      <code>sentence·512/20</code>.</li>
+      <li>The gold passage's content lands at retrieved rank 2 (word-overlap 0.7 ≥ 0.5, same file) → relevant.
+        <div class="formula">precision@5 = 1/5 = 0.20 · recall@5 = 1.0 · MRR = 1/2 = 0.50 ·
+        nDCG = (1/log₂3)/(1/log₂2) = 0.63 · F2 = (5·0.2·1)/(4·0.2+1) = 0.56</div>
+      </li>
+      <li>The judge reads the 5 chunks + reference answer → e.g. relevance 0.8, faithfulness 0.9,
+      context_precision 0.4, context_recall 1.0.</li>
+      <li>These join the other questions' scores; the macro-average becomes
+      <code>sentence·512/20</code>'s row in <code>metrics</code>.</li>
+    </ol>
+  </section>
+
+  <footer>chunklab · retrieval &amp; evaluation reference · grounded in the backend source under
+  <code>app/services/eval/</code> and <code>app/core/embedding.py</code></footer>
+</div>
+</body>
+</html>

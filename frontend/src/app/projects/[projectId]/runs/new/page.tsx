@@ -119,6 +119,11 @@ export default function NewRunPage() {
               Questions are auto-generated once per run (shared across all combinations). Fewer
               questions = faster &amp; fewer LLM tokens.
             </p>
+            <details className="rounded-lg border border-slate-200">
+              <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Advanced — judge · LLM provider · ground truth
+              </summary>
+              <div className="space-y-3 p-3 pt-1">
             <label className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
               <input type="checkbox" className="accent-brand-600" checked={enableJudge}
                 onChange={(e) => setEnableJudge(e.target.checked)} />
@@ -165,6 +170,8 @@ export default function NewRunPage() {
               </select>
             </div>
             {qaSource !== "auto" && <QASetManager projectId={projectId} />}
+              </div>
+            </details>
           </div>
 
           {/* strategy picker */}

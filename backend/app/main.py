@@ -1,3 +1,4 @@
+import asyncio
 import time
 from contextlib import asynccontextmanager
 
@@ -24,6 +25,7 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.core.ratelimit import limiter
 from app.db.setup_db import init_db
+from app.services.docs.knowledge import ensure_knowledge_ingested
 from app.workers.settings import get_arq_pool
 
 logger = get_logger(__name__)
@@ -33,10 +35,22 @@ settings = get_settings()
 API_PREFIX = "/api/v1"
 
 
+async def _ingest_knowledge_bg():
+    # Run off the startup path so /health is served immediately; the 'about'
+    # chat self-heals (lazy ingest) if a query arrives before this finishes.
+    try:
+        n = await ensure_knowledge_ingested()
+        if n:
+            logger.info("product knowledge base ready (%d chunks)", n)
+    except Exception as exc:
+        logger.warning("knowledge base ingest skipped: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging()
     await init_db()
+    app.state.knowledge_task = asyncio.create_task(_ingest_knowledge_bg())
     app.state.arq = await get_arq_pool()
     logger.info("chunklab API ready")
     yield

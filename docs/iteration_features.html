@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>chunklab — features shipped after the initial phases</title>
+<style>
+  :root{--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--brand:#6366f1;--ok:#16a34a}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:#f8fafc;line-height:1.6}
+  header{background:linear-gradient(120deg,#4f46e5,#0d9488);color:#fff;padding:44px 28px}
+  header h1{margin:0 0 8px;font-size:27px;letter-spacing:-.4px}
+  header p{margin:0;opacity:.94;max-width:880px;font-size:14.5px}
+  .layout{max-width:1140px;margin:0 auto;padding:0 22px 90px;display:grid;grid-template-columns:230px 1fr;gap:28px}
+  @media(max-width:900px){.layout{grid-template-columns:1fr}}
+  nav.toc{position:sticky;top:14px;align-self:start;font-size:13px;padding:6px 0}
+  nav.toc a{display:block;text-decoration:none;color:#475569;padding:5px 10px;border-radius:7px;border-left:2px solid transparent}
+  nav.toc a:hover{background:#eef2ff;color:#3730a3;border-left-color:var(--brand)}
+  nav.toc .grp{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--muted);margin:12px 0 5px}
+  main{min-width:0}
+  .feat{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin:18px 0;scroll-margin-top:14px}
+  .feat .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .feat .ph{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:3px 9px;border-radius:999px;background:#eef2ff;color:var(--brand)}
+  .feat .ph.ship{background:#dcfce7;color:var(--ok)}
+  .feat h2{margin:0;font-size:20px}
+  .tag{color:#475569;font-size:14.5px;margin:10px 0 4px}
+  .lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 0 6px}
+  ul.how{margin:6px 0;padding-left:0;list-style:none}
+  ul.how li{position:relative;padding:4px 0 4px 22px;font-size:14px;color:#1e293b}
+  ul.how li::before{content:"▹";position:absolute;left:2px;color:var(--brand);font-weight:800}
+  .ex{background:#f8fafc;border-left:3px solid #0d9488;border-radius:0 10px 10px 0;padding:12px 15px;margin:8px 0;font-size:13.5px}
+  .ex b{color:#0f766e}
+  code{background:#f1f5f9;padding:1px 5px;border-radius:5px;font-size:12.5px;font-family:"SF Mono",Menlo,Consolas,monospace}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:11px;padding:13px 15px;overflow-x:auto;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;line-height:1.55;margin:8px 0}
+  pre .m{color:#94a3b8} pre .y{color:#fcd34d} pre .g{color:#6ee7b7}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:8px 0}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:#f1f5f9;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+  tr:last-child td{border-bottom:none}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+  .win{background:#f0fdf4;font-weight:600}
+  .intro{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:6px 0 8px;font-size:14px;color:#334155}
+  .note{background:#fffbeb;border:1px solid #fde68a;border-radius:11px;padding:12px 15px;font-size:13.5px;color:#92400e;margin:14px 0}
+  footer{color:var(--muted);font-size:12px;border-top:1px solid var(--line);margin-top:40px;padding-top:16px}
+</style>
+</head>
+<body>
+<header>
+  <h1>chunklab — what we shipped after the initial build</h1>
+  <p>Phases 1–2 delivered the core product (projects → upload → chunk → embed → judge → results + chat). This is
+     everything added <strong>since</strong>: faster runs, bring-your-own-key, deeper results, user ground truth,
+     robustness, and UI polish — each with how it works and a concrete example.</p>
+</header>
+
+<div class="layout">
+  <nav class="toc">
+    <div class="grp">Shipped this iteration</div>
+    <a href="#fast">1 · Fast mode</a>
+    <a href="#byok">2 · Bring-your-own-key</a>
+    <a href="#pricing">3 · Per-provider pricing</a>
+    <a href="#perq">4 · Per-question + metrics</a>
+    <a href="#userqa">5 · User-provided QA</a>
+    <a href="#robust">6 · Cancel / re-run / limiter</a>
+    <a href="#ui">7 · UI polish</a>
+    <a href="#deferred">Deferred</a>
+  </nav>
+
+  <main>
+    <div class="intro">
+      Baseline (Phases 1–2, already shipped): 5 chunking strategies + combinatorial run builder · FastEmbed
+      <code>bge-small</code> (384-d) + pgvector/HNSW · Groq auto-QA → retrieve → LLM-judge + computed IR metrics ·
+      cost/token tracking · streaming RAG chat · Docker stack · rate limiting + logging. Everything below is new.
+    </div>
+
+    <!-- 1 FAST MODE -->
+    <section class="feat" id="fast">
+      <div class="top"><span class="ph ship">shipped</span><h2>1 · Fast mode (skip the LLM judge)</h2></div>
+      <p class="tag">A per-run toggle that drops the judge so a run finishes in <strong>seconds</strong> instead of being throttled by the Groq free-tier rate limit.</p>
+      <div class="lbl">How it works</div>
+      <ul class="how">
+        <li>Run builder has a <strong>“Run LLM judge”</strong> checkbox → <code>enable_judge</code> on the run config.</li>
+        <li>When off, the pipeline skips every per-question judge call and reports only the <strong>computed IR metrics</strong> (precision@k, recall@k, MRR, nDCG, F2) — which need no LLM (<code>run_pipeline.py</code>).</li>
+        <li>QA generation + retrieval are unchanged; the LLM-judged columns (relevance/faithfulness) are 0 in this mode.</li>
+      </ul>
+      <div class="lbl">Example</div>
+      <div class="ex">A 1-file, 1-combo run completed in <b>~12–19 s</b> with <b>0 judge calls</b> and cost ≈ <b>$0.00009</b>; the same kind of run with the judge on crawls through dozens of throttled <code>429</code>s. Fast mode is what makes iterating on chunking feasible on the free tier.</div>
+    </section>
+
+    <!-- 2 BYOK -->
+    <section class="feat" id="byok">
+      <div class="top"><span class="ph ship">shipped</span><h2>2 · Bring-your-own-key / multi-provider</h2></div>
+      <p class="tag">Use <strong>Groq, OpenAI, or Anthropic</strong> with your own keys, chosen <strong>per area</strong> (chat · QA-generation · judge). Keys are <strong>session-only</strong> — saved in your browser, never stored on the server.</p>
+      <div class="lbl">How it works</div>
+      <ul class="how">
+        <li>A provider registry: <code>get_llm(provider, model, api_key)</code> with adapters for Groq/OpenAI/Anthropic, all exposing <code>chat / extract / stream_chat</code> (<code>core/llm.py</code>). No arguments → the default server Groq.</li>
+        <li><strong>Named keys live only in the browser</strong> (<code>localStorage</code>); the chosen key travels with each request and is used transiently. For runs (async), the key rides the job queue (Redis) for that job only — never written to Postgres, never logged.</li>
+        <li>UI: a <strong>Settings → API keys</strong> page (add label · provider · secret), a picker in the <strong>chat panel</strong>, and an <strong>LLM selector</strong> in the run builder.</li>
+        <li>Provider/key errors surface in the chat stream (e.g. <code>⚠️ LLM error (openai): 401</code>) instead of hanging.</li>
+      </ul>
+      <div class="lbl">Example</div>
+      <div class="ex">Add a key <code>my-openai · OpenAI · sk-…</code> in Settings → pick it in chat or a run → that request runs on <code>gpt-4o-mini</code>; everything else keeps using the server Groq default. A bad key returns a clean 401 message.</div>
+    </section>
+
+    <!-- 3 PRICING -->
+    <section class="feat" id="pricing">
+      <div class="top"><span class="ph ship">shipped</span><h2>3 · Per-provider pricing</h2></div>
+      <p class="tag">Real LLM cost is computed at each provider/model’s actual token rate, not always Groq’s.</p>
+      <div class="lbl">How it works</div>
+      <ul class="how">
+        <li><code>llm_cost(provider, model, prompt_tokens, completion_tokens)</code> looks up a rate table (per 1M tokens) with a provider fallback (<code>core/pricing.py</code>).</li>
+        <li>The pipeline meters the judge with the run’s <em>actual</em> provider+model; embedding cost stays notional (local model = $0, kept for dollar-comparability).</li>
+      </ul>
+      <div class="lbl">Example</div>
+      <div class="ex">A judge run on <code>gpt-4o-mini</code> is billed at <b>$0.15 / $0.60</b> per-M (in/out); on <code>claude-3-5-sonnet</code> at <b>$3 / $15</b>; on Groq <code>8b-instant</code> at <b>$0.05 / $0.08</b> — so the cost column is meaningful across providers.</div>
+    </section>
+
+    <!-- 4 PER-QUESTION -->
+    <section class="feat" id="perq">
+      <div class="top"><span class="ph ship">shipped · Phase 7</span><h2>4 · Per-question results + selectable metrics</h2></div>
+      <p class="tag">Drill from the per-combination average down to <strong>every individual question</strong>, and choose exactly which metrics to show / export.</p>
+      <div class="lbl">How it works</div>
+      <ul class="how">
+        <li>Each question’s computed + judge metrics are persisted in <code>results.query_metrics</code> (per combination × question).</li>
+        <li><code>GET /runs/{id}/per-question</code> returns the disaggregated rows.</li>
+        <li>Results tab: an <strong>Aggregated ⇄ Per-question</strong> toggle, <strong>metric chips</strong> to show/hide columns (they also drive the bar chart), and <strong>CSV in both shapes</strong>.</li>
+      </ul>
+      <div class="lbl">Example — a real 4-strategy fast run on <code>SETUP.md</code></div>
+      <table>
+        <tr><th>combination</th><th class="n">chunks</th><th class="n">P@k</th><th class="n">recall</th><th class="n">MRR</th><th class="n">nDCG</th><th class="n">F2</th></tr>
+        <tr class="win"><td>sentence·512/20 ★</td><td class="n">7</td><td class="n">0.233</td><td class="n">1.00</td><td class="n">0.917</td><td class="n">0.942</td><td class="n">0.591</td></tr>
+        <tr><td>token·256/20</td><td class="n">17</td><td class="n">0.200</td><td class="n">1.00</td><td class="n">0.764</td><td class="n">0.822</td><td class="n">0.556</td></tr>
+        <tr><td>character·1000/100</td><td class="n">13</td><td class="n">0.200</td><td class="n">1.00</td><td class="n">0.680</td><td class="n">0.760</td><td class="n">0.556</td></tr>
+        <tr><td>recursive·512/64</td><td class="n">29</td><td class="n">0.167</td><td class="n">0.833</td><td class="n">0.722</td><td class="n">0.750</td><td class="n">0.463</td></tr>
+      </table>
+      <div class="ex"><b>Why per-question matters:</b> the aggregate says recursive lost on nDCG. The per-question view shows <em>why</em> — it scored <b>nDCG 0, recall 0</b> on “What is the purpose of the <code>hf_cache</code> volume?”, a miss the average hides.</div>
+    </section>
+
+    <!-- 5 USER QA -->
+    <section class="feat" id="userqa">
+      <div class="top"><span class="ph ship">shipped · Phase 6</span><h2>5 · User-provided QA / ground truth</h2></div>
+      <p class="tag">Bring your own questions + reference answers so runs are scored against <strong>trusted, domain-specific</strong> ground truth — instead of (or alongside) auto-generated QA.</p>
+      <div class="lbl">How it works</div>
+      <ul class="how">
+        <li>Project-level QA sets in <code>core.project_qa_pairs</code> with CRUD at <code>/projects/{id}/qa-set</code>; a <strong>QA-set manager</strong> (add / list / delete) in the run builder.</li>
+        <li>Run option <strong>Ground truth = auto / mine / both</strong> (<code>qa_source</code>). “Mine” spends no QA-gen tokens.</li>
+        <li>Each user row can include a gold passage for the computed metrics; if omitted, it falls back to the reference answer.</li>
+      </ul>
+      <div class="lbl">Example</div>
+      <div class="ex">Add <code>“How do you start the whole stack?” → “docker compose up --build”</code> to a project, run with <b>Ground truth = both</b> → the run is scored on your question <em>plus</em> generated ones; verified that the user question flowed in and scored (nDCG 0.68, recall 1.0).</div>
+    </section>
+
+    <!-- 6 ROBUSTNESS -->
+    <section class="feat" id="robust">
+      <div class="top"><span class="ph ship">shipped · Phase 4</span><h2>6 · Cancel-that-stops-work · Re-run · Redis limiter</h2></div>
+      <p class="tag">Operational robustness for real use.</p>
+      <div class="lbl">How it works</div>
+      <ul class="how">
+        <li><strong>Cancel actually stops the worker</strong>: the pipeline checks the run’s cancel flag between combinations and aborts (previously cancel only marked status).</li>
+        <li><strong>Re-run</strong>: <code>POST /runs/{id}/rerun</code> clones a run’s config into a fresh run + a <strong>Re-run</strong> button on the run page.</li>
+        <li><strong>Redis-backed rate limiter</strong>: slowapi counters live in Redis so limits are consistent across backend instances (falls back to in-memory).</li>
+      </ul>
+      <div class="lbl">Example</div>
+      <div class="ex">Hit <b>Re-run</b> on a finished run → a new queued run with the same matrix appears instantly; cancel a long run → the worker stops at the next combination boundary instead of grinding on.</div>
+    </section>
+
+    <!-- 7 UI -->
+    <section class="feat" id="ui">
+      <div class="top"><span class="ph ship">shipped</span><h2>7 · UI polish</h2></div>
+      <p class="tag">Targeted fixes to the results dashboard and run builder.</p>
+      <div class="lbl">How it works</div>
+      <ul class="how">
+        <li><strong>Cost-vs-accuracy scatter</strong>: per-combination colored + labeled points, <strong>Pareto-optimal</strong> ones highlighted (★), a metric selector so it’s “cost vs <em>any</em> metric”, a small legend, and a readable cost axis for tiny (fast-mode) costs.</li>
+        <li><strong>Bar chart follows the metric chips</strong> and drops all-zero metrics (so judge-off runs don’t show dead relevance/faithfulness bars).</li>
+        <li><strong>Consistent per-combination color</strong> across the scatter and the results table (a swatch next to each row).</li>
+        <li><strong>Run builder</strong>: advanced options (judge · LLM provider · ground truth) are now <strong>collapsed by default</strong> to cut scrolling.</li>
+      </ul>
+      <div class="ex">Pick <code>cost vs recall@k</code> in the scatter dropdown; deselect <code>relev</code>/<code>faith</code> chips to focus the bar chart on computed metrics; the table dot color matches each scatter point.</div>
+    </section>
+
+    <div class="note" id="deferred">
+      <strong>Deliberately deferred (each its own careful pass):</strong> Alembic migrations (replaces the startup
+      <code>create_all</code> bootstrap), worker fan-out / parallelization (rewrites the job model), and pluggable
+      embeddings (changes the fixed <code>vector(384)</code> dimension → schema migration). Backlog: auth, re-ranking,
+      more chunking strategies.
+    </div>
+
+    <footer>
+      Companion docs: <code>docs/walkthrough.html</code> (full architecture), <code>docs/PHASES.md</code> (roadmap).
+      Source of truth: <code>backend/app/</code> and <code>frontend/src/</code>.
+    </footer>
+  </main>
+</div>
+</body>
+</html>

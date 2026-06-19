@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { Bot, Send, Sparkles } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { chatStream, type ChatPayload } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { useKeysStore } from "@/store/keys-store";
@@ -21,6 +23,13 @@ export const RUN_SUGGESTIONS = [
   "Summarize the cost vs accuracy trade-off.",
   "Where did the weakest combination lose points?",
 ];
+export const ABOUT_SUGGESTIONS = [
+  "What is chunklab and what problem does it solve?",
+  "How does the retriever work?",
+  "How are the evaluation questions generated?",
+  "What chunking strategies are supported?",
+  "How is retrieval accuracy scored?",
+];
 
 export function ChatPanel({
   projectId,
@@ -32,8 +41,8 @@ export function ChatPanel({
   suggestions = PROJECT_SUGGESTIONS,
   placeholder = "Ask about this scope…",
 }: {
-  projectId: string;
-  scope: "project" | "run" | "compare";
+  projectId?: string;
+  scope: "project" | "run" | "compare" | "about";
   runId?: string;
   runIds?: string[];
   canSend?: boolean;
@@ -61,7 +70,8 @@ export function ChatPanel({
     setMessages((m) => [...m, { role: "user", content: text }, { role: "assistant", content: "" }]);
     setSending(true);
     logger.info("chat.send", { scope });
-    const payload: ChatPayload = { scope, message: text, history, project_id: projectId };
+    const payload: ChatPayload = { scope, message: text, history };
+    if (scope !== "about" && projectId) payload.project_id = projectId;
     if (scope === "run") payload.run_id = runId;
     if (scope === "compare") payload.run_ids = runIds;
     if (selKey) {
@@ -128,8 +138,14 @@ export function ChatPanel({
             <span className="mb-3 rounded-2xl bg-gradient-to-br from-brand-500 to-sky-500 p-3 text-white">
               <Sparkles className="h-7 w-7" />
             </span>
-            <p className="text-sm font-medium text-slate-700">Ask anything about your experiments</p>
-            <p className="mt-1 text-sm text-slate-400">Answers are grounded in your run results.</p>
+            <p className="text-sm font-medium text-slate-700">
+              {scope === "about" ? "Ask anything about chunklab" : "Ask anything about your experiments"}
+            </p>
+            <p className="mt-1 text-sm text-slate-400">
+              {scope === "about"
+                ? "Answers are grounded in chunklab's documentation."
+                : "Answers are grounded in your run results."}
+            </p>
             <div className="mt-5 flex max-w-xl flex-wrap justify-center gap-2">
               {suggestions.map((s) => (
                 <button
@@ -154,11 +170,21 @@ export function ChatPanel({
               <div
                 className={
                   m.role === "user"
-                    ? "max-w-[78%] rounded-2xl rounded-tr-sm bg-gradient-to-b from-brand-500 to-brand-600 px-4 py-2.5 text-sm text-white shadow-sm"
-                    : "max-w-[78%] whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-slate-100 px-4 py-2.5 text-sm text-slate-800"
+                    ? "max-w-[78%] whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-gradient-to-b from-brand-500 to-brand-600 px-4 py-2.5 text-sm text-white shadow-sm"
+                    : "max-w-[78%] rounded-2xl rounded-tl-sm bg-slate-100 px-4 py-2.5 text-sm leading-relaxed text-slate-800"
                 }
               >
-                {m.content || <Spinner className="h-4 w-4" />}
+                {m.content ? (
+                  m.role === "assistant" ? (
+                    <div className="chat-md">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    m.content
+                  )
+                ) : (
+                  <Spinner className="h-4 w-4" />
+                )}
               </div>
             </div>
           ))

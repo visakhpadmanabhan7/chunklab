@@ -10,7 +10,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    scope: Literal["project", "run", "compare"]
+    scope: Literal["project", "run", "compare", "about"]
     project_id: uuid.UUID | None = None
     run_id: uuid.UUID | None = None
     run_ids: list[uuid.UUID] | None = None

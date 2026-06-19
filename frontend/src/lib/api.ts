@@ -170,7 +170,7 @@ export const progressStreamUrl = (runId: string) =>
 
 // ---- chat (streaming) ----
 export interface ChatPayload {
-  scope: "project" | "run" | "compare";
+  scope: "project" | "run" | "compare" | "about";
   project_id?: string;
   run_id?: string;
   run_ids?: string[];

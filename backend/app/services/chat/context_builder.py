@@ -127,4 +127,10 @@ async def build_context(
         if rows:
             parts += await _retrieve_snippets(session, rows[0].id, query)
 
+    elif scope == "about":
+        # Product assistant: RAG over chunklab's own documentation.
+        from app.services.docs.knowledge import build_about_context
+
+        parts.append(await build_about_context(session, query))
+
     return "\n\n".join(parts) if parts else "(no run results available yet)"

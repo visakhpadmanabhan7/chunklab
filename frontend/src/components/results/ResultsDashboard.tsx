@@ -37,6 +37,25 @@ const SCATTER_COLORS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899", "
 // One stable color per combination (by row order), reused in the scatter + the table.
 const comboColor = (i: number) => SCATTER_COLORS[i % SCATTER_COLORS.length];
 
+// Stable color per metric (for the grouped bar chart).
+const METRIC_COLORS: Record<string, string> = {
+  relevance: "#f59e0b",
+  faithfulness: "#10b981",
+  precision_at_k: "#0ea5e9",
+  recall_at_k: "#14b8a6",
+  mrr: "#8b5cf6",
+  ndcg_at_k: "#6366f1",
+  f2: "#ec4899",
+};
+
+// Tiny costs (e.g. fast-mode runs) otherwise all render as "$0.0000".
+const fmtCostAxis = (v: number) => {
+  const n = Number(v);
+  if (!n) return "$0";
+  if (n < 0.001) return `$${n.toExponential(1)}`;
+  return `$${n.toFixed(4)}`;
+};
+
 // Y-axis options for the cost-vs-X scatter (all 0..1, higher = better).
 const Y_METRICS = [
   { key: "ndcg_at_k", label: "nDCG" },
@@ -100,7 +119,11 @@ export function ResultsDashboard({ runId }: { runId: string }) {
   const colMax: Record<string, number> = {};
   METRIC_COLS.forEach((c) => (colMax[c.key as string] = Math.max(...rows.map((r) => r[c.key] as number))));
 
-  const barData = rows.map((r) => ({ label: r.label, relev: r.relevance, faith: r.faithfulness, "P@k": r.precision_at_k, ndcg: r.ndcg_at_k }));
+  const barData = rows.map((r) => {
+    const o: Record<string, number | string> = { label: r.label };
+    METRIC_COLS.forEach((c) => (o[c.key as string] = r[c.key] as number));
+    return o;
+  });
   const yLabel = Y_METRICS.find((m) => m.key === yKey)!.label;
   const scatterData = rows.map((r, i) => {
     const y = r[yKey] as number;
@@ -122,6 +145,8 @@ export function ResultsDashboard({ runId }: { runId: string }) {
   });
   const allZero = rows.every((r) => r.ndcg_at_k === 0 && r.relevance === 0);
   const shownCols = METRIC_COLS.filter((c) => shown.includes(c.key as string));
+  // bar chart follows the metric chips, and drops metrics that are all-zero (e.g. judge off)
+  const barMetrics = shownCols.filter((c) => rows.some((r) => (r[c.key] as number) > 0));
   const toggleMetric = (k: string) =>
     setShown((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]));
   function exportCsv() {
@@ -157,7 +182,7 @@ export function ResultsDashboard({ runId }: { runId: string }) {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="card p-5">
-          <h3 className="mb-4 text-sm font-semibold text-slate-700">Accuracy by combination</h3>
+          <h3 className="mb-4 text-sm font-semibold text-slate-700">Metrics by combination <span className="font-normal text-slate-400">(follows the chips below)</span></h3>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={barData} margin={{ left: -18 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
@@ -165,10 +190,15 @@ export function ResultsDashboard({ runId }: { runId: string }) {
               <YAxis domain={[0, 1]} tick={{ fontSize: 11 }} />
               <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="ndcg" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="P@k" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="faith" fill="#10b981" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="relev" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              {barMetrics.map((c) => (
+                <Bar
+                  key={c.key}
+                  dataKey={c.key as string}
+                  name={c.label}
+                  fill={METRIC_COLORS[c.key as string] ?? "#6366f1"}
+                  radius={[4, 4, 0, 0]}
+                />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -195,7 +225,7 @@ export function ResultsDashboard({ runId }: { runId: string }) {
                 dataKey="x"
                 name="cost"
                 tick={{ fontSize: 11 }}
-                tickFormatter={(v) => `$${Number(v).toFixed(4)}`}
+                tickFormatter={fmtCostAxis}
                 label={{ value: "cost ($ / run)", position: "insideBottom", offset: -12, fontSize: 11, fill: "#64748b" }}
               />
               <YAxis

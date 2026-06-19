@@ -40,6 +40,7 @@ async def chat_stream(
         try:
             async for token in stream_answer(
                 context, body.message, history,
+                scope=body.scope,
                 provider=body.provider, model=body.model, api_key=body.api_key,
             ):
                 yield token

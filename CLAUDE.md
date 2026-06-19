@@ -68,5 +68,8 @@ NEVER commit `.env` or hardcode keys. The repo is private. See `docs/SECURITY.md
 - Run pipeline: `app/workers/run_pipeline.py` · progress: `app/workers/progress.py`
 - Eval: `app/services/eval/{qa_generator,retriever,judge,metrics}.py`
 - Report builder (results+analytics+chat): `app/services/reporting.py`
+- Product assistant (`about` chat scope): knowledge base `backend/app/knowledge/*.md`
+  → embedded into `results.doc_chunks` by `app/services/docs/knowledge.py` (chunklab's
+  own RAG, dogfooded). Refresh: `docker compose exec backend python -m app.scripts.ingest_docs`.
 - Frontend builder screen: `frontend/src/app/projects/[projectId]/runs/new/page.tsx`
 - More detail: `docs/` and `backend/CLAUDE.md`, `frontend/CLAUDE.md`.

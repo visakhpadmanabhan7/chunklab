@@ -24,6 +24,9 @@ redisdata/
 hf_cache/
 docs/
 *.md
+# ...but the product-assistant knowledge base must ship inside the backend image.
+!backend/app/knowledge
+!backend/app/knowledge/*.md
 .DS_Store
 .idea/
 .vscode/

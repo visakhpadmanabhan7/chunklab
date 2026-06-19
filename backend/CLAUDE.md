@@ -42,10 +42,11 @@ Both API and worker need Postgres (pgvector) + Redis. Env is read via `app.core.
 - **`app/services/chunking/`** — registry-pattern strategies (`sentence`, `character`, `recursive`, `token`, `semantic`). Each implements `split(text, params) -> list[str]` and `label(params) -> str`. `expander.expand()` fans out specs into deduped labeled cells; `assemble()` wraps pieces into `Chunk(index, content, start, end)`.
 - **`app/services/embedding/`** — embedding orchestration for chunks/queries (wraps `app.core.embedding`).
 - **`app/services/eval/`** — `qa_generator.py` (Groq QA-pair generation w/ gold passages), `retriever.py` (pgvector cosine retrieval, `relevance = 1 - distance`), `judge.py` (Groq LLM judge, temp 0), `metrics.py` (precision/recall@k, MRR, nDCG@k, F2 vs gold passage), `reporting.py` (`build_run_report()` joins combinations + metrics + stats into per-combination dicts; used by results, analytics, chat).
-- **`app/services/chat/`** — chat orchestration over project/run/compare scopes; streams tokens.
-- **`app/prompts/`** — `prompt_texts.py` ONLY: `QA_GENERATOR_PROMPT`, `JUDGE_PROMPT`, `CHAT_SYSTEM_PROMPT`.
+- **`app/services/chat/`** — chat orchestration over project/run/compare/about scopes; streams tokens.
+- **`app/services/docs/`** — product-assistant knowledge base: load `app/knowledge/*.md`, embed into `results.doc_chunks`, and retrieve sections for the `about` chat scope (chunklab's RAG, dogfooded). Re-ingest is idempotent (corpus hash); runs as a background task on startup.
+- **`app/prompts/`** — `prompt_texts.py` ONLY: `QA_GENERATOR_PROMPT`, `JUDGE_PROMPT`, `CHAT_SYSTEM_PROMPT`, `CHAT_ABOUT_SYSTEM_PROMPT`.
 - **`app/workers/`** — arq. `run_pipeline.py` (`run_pipeline`, `parse_file_task`), `settings.py` (`WorkerSettings`, `REDIS_SETTINGS`, `get_arq_pool`), `progress.py` (publishes to Redis pub/sub `run:{id}:progress` + snapshot hash `run:{id}:state`, denormalizes onto Run/RunCombination rows).
-- **`app/scripts/`** — `seed.py` (sample data), `prefetch_models.py` (warm HF/embedding cache).
+- **`app/scripts/`** — `seed.py` (sample data), `prefetch_models.py` (warm HF/embedding cache), `ingest_docs.py` (re-embed the product-assistant knowledge base).
 
 ## Rules (do not violate)
 
@@ -61,7 +62,7 @@ Both API and worker need Postgres (pgvector) + Redis. Env is read via `app.core.
 ## Two Postgres schemas
 
 - **`core`**: `projects`, `files`, `parsed_documents`, `runs`, `run_combinations`.
-- **`results`**: `chunks` (`embedding vector(384)`), `combination_stats`, `qa_pairs`, `retrievals`, `judge_evaluations`, `metrics`.
+- **`results`**: `chunks` (`embedding vector(384)`), `combination_stats`, `qa_pairs`, `retrievals`, `judge_evaluations`, `query_metrics`, `metrics`, `doc_chunks` (`embedding vector(384)`, product-assistant docs).
 
 `init_db()` does: `CREATE EXTENSION vector`, `CREATE SCHEMA core/results`, `create_all` on both metadatas, and the HNSW index `embedding vector_cosine_ops` (m=16, ef_construction=64).
 

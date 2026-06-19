@@ -34,4 +34,12 @@ async def init_db() -> None:
                 "WITH (m = 16, ef_construction = 64)"
             )
         )
+        # Same HNSW cosine index for the product-assistant doc embeddings.
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_doc_chunks_embedding_hnsw "
+                "ON results.doc_chunks USING hnsw (embedding vector_cosine_ops) "
+                "WITH (m = 16, ef_construction = 64)"
+            )
+        )
     logger.info("Database initialized (schemas core/results, pgvector ready)")

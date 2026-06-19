@@ -8,14 +8,16 @@ import {
   ArrowLeft,
   BarChart3,
   FileText,
-  FlaskConical,
+  Folder,
   Info,
   KeyRound,
   LayoutDashboard,
   MessageSquare,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
-import { getProject } from "@/lib/api";
+import { getProject, listProjects } from "@/lib/api";
+import { Logo } from "@/components/ui/Logo";
 
 function NavItem({
   href,
@@ -55,6 +57,7 @@ export function Sidebar() {
     queryFn: () => getProject(projectId!),
     enabled: !!projectId,
   });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: listProjects });
 
   const base = `/projects/${projectId}`;
   const projectNav = projectId
@@ -68,19 +71,11 @@ export function Sidebar() {
 
   return (
     <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-slate-200/80 bg-white/70 backdrop-blur-xl">
-      <Link href="/projects" className="flex items-center gap-2.5 px-5 py-5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-sky-500 text-white shadow-sm shadow-brand-500/30">
-          <FlaskConical className="h-5 w-5" />
-        </span>
-        <span className="flex flex-col leading-tight">
-          <span className="text-base font-bold tracking-tight">chunklab</span>
-          <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-            RAG chunking benchmark
-          </span>
-        </span>
+      <Link href="/projects" className="block px-5 py-5">
+        <Logo size="md" />
       </Link>
 
-      <nav className="flex-1 space-y-1 px-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3">
         {inProject ? (
           <>
             <Link
@@ -97,13 +92,35 @@ export function Sidebar() {
             ))}
           </>
         ) : (
-          <NavItem href="/projects" label="Projects" icon={LayoutDashboard} active />
+          <>
+            <NavItem
+              href="/projects"
+              label="All projects"
+              icon={LayoutDashboard}
+              active={pathname === "/projects"}
+            />
+            {(projects ?? []).length > 0 && (
+              <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Projects
+              </p>
+            )}
+            {(projects ?? []).map((p) => (
+              <NavItem
+                key={p.id}
+                href={`/projects/${p.id}`}
+                label={p.name}
+                icon={Folder}
+                active={pathname.startsWith(`/projects/${p.id}`)}
+              />
+            ))}
+          </>
         )}
       </nav>
 
-      <div className="border-t border-slate-200/70 px-3 py-3">
+      <div className="space-y-1 border-t border-slate-200/70 px-3 py-3">
+        <NavItem href="/assistant" label="Ask the docs" icon={Sparkles} active={pathname.startsWith("/assistant")} />
+        <NavItem href="/about" label="About" icon={Info} active={pathname === "/about"} />
         <NavItem href="/settings" label="API keys" icon={KeyRound} active={pathname.startsWith("/settings")} />
-        <NavItem href="/about" label="About & docs" icon={Info} active={pathname === "/about"} />
         <p className="px-3 pt-2 text-[11px] text-slate-400">Groq · pgvector · FastEmbed</p>
       </div>
     </aside>

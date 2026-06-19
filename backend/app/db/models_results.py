@@ -158,3 +158,26 @@ class Metrics(ResultsBase, TimestampMixin):
     ndcg_at_k: Mapped[float] = mapped_column(Float, default=0.0)
     f2: Mapped[float] = mapped_column(Float, default=0.0)
     avg_retrieval_latency_ms: Mapped[float] = mapped_column(Float, default=0.0)
+
+
+class DocChunk(ResultsBase, TimestampMixin):
+    """Embedded product-documentation chunks powering the 'about' chat scope.
+
+    chunklab dogfoods its own RAG pipeline here: the curated markdown under
+    ``app/knowledge/`` is split by heading, embedded with the SAME FastEmbed
+    model used for experiments, and retrieved by pgvector cosine similarity at
+    chat time. ``corpus_version`` is a hash of the knowledge corpus so startup
+    can detect doc changes and re-ingest idempotently.
+    """
+
+    __tablename__ = "doc_chunks"
+    __table_args__ = {"schema": "results"}
+
+    id: Mapped[uuid.UUID] = _pk()
+    source: Mapped[str] = mapped_column(String(256), index=True)
+    title: Mapped[str] = mapped_column(String(512), default="")
+    section: Mapped[str] = mapped_column(String(512), default="")
+    content: Mapped[str] = mapped_column(Text)
+    token_count: Mapped[int] = mapped_column(Integer, default=0)
+    corpus_version: Mapped[str] = mapped_column(String(64), index=True, default="")
+    embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIM))
