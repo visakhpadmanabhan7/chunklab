@@ -32,8 +32,8 @@ export default function OverviewPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Files" value={files?.length ?? 0} sub={`${parsed} parsed`} icon={FileText} accent="sky" />
-        <StatCard label="Runs" value={runs?.length ?? 0} sub={`${completed} completed`} icon={FlaskConical} accent="brand" />
+        <StatCard label="Files" value={files?.length ?? 0} sub={`${parsed} parsed`} icon={FileText} accent="sky" href={`/projects/${projectId}/files`} />
+        <StatCard label="Runs" value={runs?.length ?? 0} sub={`${completed} completed`} icon={FlaskConical} accent="brand" href={`/projects/${projectId}/runs`} />
         <Link href={`/projects/${projectId}/files`} className="card card-hover flex items-center gap-3 p-5">
           <span className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600"><Upload className="h-5 w-5" /></span>
           <div>

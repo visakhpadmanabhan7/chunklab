@@ -66,9 +66,11 @@ Both API and worker need Postgres (pgvector) + Redis. Env is read via `app.core.
 
 `init_db()` does: `CREATE EXTENSION vector`, `CREATE SCHEMA core/results`, `create_all` on both metadatas, and the HNSW index `embedding vector_cosine_ops` (m=16, ef_construction=64).
 
-## Worker pipeline (`run_pipeline`)
+## Worker pipeline (`run_pipeline`) — parallel
 
-set run `running` → load combinations + files → parse each file (`ParsedDocument`, in thread) → generate shared QA set once → precompute question embeddings → per combination: `chunking` (per file: split → assemble → count_tokens → embed → bulk-insert `Chunk` rows w/ vectors), then `evaluating` (per QA: retrieve top-k → save `Retrieval` → judge → save `JudgeEvaluation` → `QueryMetrics`), then aggregate `CombinationStats` + `Metrics` → combo `completed`. Run `completed` at the end; any error sets run `failed`.
+set run `running` → load combinations + files → **parse files concurrently** (each its own session, `asyncio.gather`) → **generate shared QA set concurrently** (per-file Groq calls fan out under the shared LLM semaphore) → precompute question embeddings → **process combinations concurrently** (`MAX_CONCURRENT_COMBINATIONS` at a time, each `_process_combination` owns a session): `chunking` (streamed per file: split → assemble → count_tokens → embed → insert `Chunk` rows w/ vectors), then `evaluating` (retrieve top-k serially on the session, then **judge calls fan out** under the shared LLM semaphore, persist `JudgeEvaluation` + `QueryMetric`), then aggregate `CombinationStats` + `Metrics` → combo `completed`. Run `completed` at the end (live run % = mean of per-combo progress); any error sets run `failed`.
+
+**Concurrency rules:** embedding/tokenizing use one shared FastEmbed/ONNX model — call them under the **shared `embed_lock`** only (never concurrently), and stream one file at a time to bound worker memory. Network-bound Groq calls (QA-gen, judge) are what actually parallelise; they share `MAX_CONCURRENT_LLM` (kept low so free Groq tiers don't 429). Tunables live in `Settings`: `MAX_CONCURRENT_COMBINATIONS`, `MAX_CONCURRENT_LLM`, `MAX_CONCURRENT_EMBED`. The DB pool (`db/engine.py`) is sized (`pool_size=20`) for the concurrent sessions; the Redis client (`core/redis.py`) is pooled + pipelined for bursty progress publishes.
 
 ## Cost model (`app/core/pricing.py`)
 

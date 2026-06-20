@@ -30,7 +30,7 @@ export function Logo({
         <ChunkMark size={d.icon} />
       </span>
       <span className={`font-bold tracking-tight ${d.text} ${onDark ? "text-white" : "text-slate-900"}`}>
-        chunk
+        Chunk
         <span
           className={
             onDark
@@ -38,7 +38,7 @@ export function Logo({
               : "bg-gradient-to-r from-brand-600 to-sky-500 bg-clip-text text-transparent"
           }
         >
-          lab
+          Lab
         </span>
       </span>
     </span>

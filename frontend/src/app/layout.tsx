@@ -4,7 +4,7 @@ import { Providers } from "./providers";
 import { Sidebar } from "@/components/layout/Sidebar";
 
 export const metadata: Metadata = {
-  title: "chunklab — RAG chunking benchmark",
+  title: "ChunkLab — RAG chunking benchmark",
   description: "Evaluate and compare text-chunking strategies for RAG",
 };
 

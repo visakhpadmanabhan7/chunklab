@@ -77,7 +77,7 @@ export default function RunDetailPage() {
       )}
 
       {active ? (
-        <RunProgress runId={runId} overallPct={run.progress} />
+        <RunProgress runId={runId} overallPct={run.progress} startedAt={run.started_at} />
       ) : (
         <>
           <div className="mb-5 inline-flex rounded-xl border border-slate-200 bg-white p-1">

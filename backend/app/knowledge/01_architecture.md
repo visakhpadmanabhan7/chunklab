@@ -127,38 +127,50 @@ carry `sizes:[...]`) into labeled, de-duplicated cells; the backend inserts a
 `run_pipeline(run_id)`, and returns `RunDetail`.
 
 `run_pipeline` (`app/workers/run_pipeline.py`) then executes, publishing
-progress at every step:
+progress at every step. **The pipeline is heavily parallelised** — within a
+single run, files parse concurrently, the QA set is generated concurrently, and
+several combinations are processed at once, each in its own DB session:
 
 1. **Start.** `Run.status="running"`, `progress=0`, emit a `run` event.
 2. **Load.** Read the `RunCombination`s and target `File`s (`config.file_ids`:
    `"all"` → all project files, else the listed UUIDs). No files → fail fast.
-3. **Parse all files.** `_ensure_parsed` per file, reusing any prior
-   `ParsedDocument`; parsing runs in a thread so it does not block the event
-   loop.
-4. **Generate the shared QA set once per run.** Per file,
-   `generate_qa_pairs(clean_text, QA_PAIRS_PER_FILE)` samples evenly-spaced
-   ~900-char gold passages and calls Groq with `QA_GENERATOR_PROMPT` to produce
-   `{question, reference_answer}`, stored as `QAPair` rows with the gold passage
-   and its char offsets. **Question embeddings are precomputed once** and reused
-   across every combination — the identical QA set is what makes combinations
-   comparable.
-5. **For each combination** (`_process_combination`):
-   - **Chunk → embed → store**, per file. `RunCombination.status="chunking"`.
-     `strategy.split(clean_text, params)` produces raw pieces; `assemble()`
-     wraps them into `Chunk(index, content, start, end)`; `count_tokens()`
-     counts tokens; `embed_texts()` (in a thread) produces 384-dim vectors; rows
-     are bulk-inserted into `results.chunks`.
-   - **Retrieve → judge → score**, per QA pair. `status="evaluating"`. For each
-     question vector, `retrieve(...)` runs a pgvector cosine KNN scoped to the
-     combination and saves a `Retrieval`; `judge(...)` calls Groq with
-     `JUDGE_PROMPT` (temp 0) for relevance, faithfulness, context precision, and
-     context recall, saved as a `JudgeEvaluation`; computed IR metrics are
-     derived per query in `metrics.py`.
+3. **Parse all files — concurrently.** `_ensure_parsed` runs per file in its own
+   session, `asyncio.gather`-ed (bounded by `MAX_CONCURRENT_EMBED`), reusing any
+   prior `ParsedDocument`; the CPU-bound parse runs in a thread.
+4. **Generate the shared QA set once per run — concurrently.** Each file's
+   `generate_qa_pairs(clean_text, …)` Groq call fans out together (bounded by the
+   shared LLM semaphore `MAX_CONCURRENT_LLM`), then the `QAPair` rows are
+   persisted in one session. **Question embeddings are precomputed once** and
+   reused across every combination — the identical QA set is what makes
+   combinations comparable.
+5. **Process combinations concurrently** (`MAX_CONCURRENT_COMBINATIONS` at a
+   time; each `_process_combination` owns a session):
+   - **Chunk → embed → store**, streamed per file. `status="chunking"`.
+     `strategy.split()` + `assemble()` produce `Chunk`s; `count_tokens()` counts
+     tokens; `embed_texts()` (in a thread) produces 384-dim vectors; rows are
+     inserted into `results.chunks`. Embedding/tokenizing run under a **shared
+     lock** (the FastEmbed/ONNX session is a single shared instance, unsafe to
+     call from multiple threads), and one file at a time keeps memory bounded.
+   - **Retrieve → judge → score**, per QA pair. `status="evaluating"`. Retrieval
+     (pgvector cosine KNN scoped to the combination) runs serially on the
+     session; then the slow **`judge(...)` Groq calls fan out together**, bounded
+     by the shared LLM semaphore; results and computed IR metrics
+     (`metrics.py`) are persisted.
    - **Aggregate.** Write `CombinationStats` and `Metrics`; `status="completed"`,
      emit a `combo` event.
 6. **Finish.** `Run.status="completed"`, `progress=1.0`, terminal `run` event.
    Any uncaught exception sets `Run.status="failed"` with the error and emits a
-   failed `run` event plus an error `log`.
+   failed `run` event plus an error `log`. The live `run` percentage is the mean
+   of the per-combination progress, so the UI shows combinations advancing
+   side-by-side.
+
+**Why this shape.** Embedding is CPU-bound and uses one shared model, so it is
+serialised — concurrency there buys nothing and risks OOM, so embeds stream one
+file at a time. The real wins are the network-bound Groq calls (QA generation and
+the LLM judge), which overlap freely, and the overlap of one combination's
+judging with another's embedding. Concurrency limits live in `Settings`
+(`MAX_CONCURRENT_COMBINATIONS`, `MAX_CONCURRENT_LLM`, `MAX_CONCURRENT_EMBED`);
+the LLM cap is kept modest so free Groq tiers don't 429.
 
 See `03_chunking_strategies.md`, `04_qa_generation_and_evaluation.md`, and
 `05_retrieval_and_vector_search.md` for the details of each stage.

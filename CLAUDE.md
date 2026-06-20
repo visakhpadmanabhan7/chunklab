@@ -24,7 +24,11 @@ Ports: **3000** frontend · **8000** backend · **5432** postgres · **6379** re
 
 ## Architecture
 - **backend/** — FastAPI (async). API under `/api/v1`. Heavy work runs in an
-  **arq** worker (Redis queue), not request handlers.
+  **arq** worker (Redis queue), not request handlers. The run pipeline is
+  **parallel**: files parse concurrently, the QA set generates concurrently, and
+  several combinations run at once — but embedding uses one shared model so it is
+  serialized under a lock (concurrency tunables in `Settings.MAX_CONCURRENT_*`).
+  See `backend/CLAUDE.md` → "Worker pipeline".
 - **frontend/** — Next.js 15 (App Router) + TypeScript + Tailwind + TanStack
   Query + Recharts. Live progress via native `EventSource` (SSE); chat via
   `fetch` + `ReadableStream`.

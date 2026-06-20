@@ -14,11 +14,16 @@ logger = get_logger(__name__)
 
 @lru_cache
 def get_embedding_model():
+    import os
+
     from fastembed import TextEmbedding
 
     settings = get_settings()
-    logger.info("Loading embedding model %s", settings.EMBEDDING_MODEL)
-    return TextEmbedding(model_name=settings.EMBEDDING_MODEL)
+    # Use every available core for the ONNX matrix ops — embedding is the pipeline's
+    # dominant CPU cost, so multithreaded inference is the biggest single speed-up.
+    threads = os.cpu_count() or 4
+    logger.info("Loading embedding model %s (onnx threads=%s)", settings.EMBEDDING_MODEL, threads)
+    return TextEmbedding(model_name=settings.EMBEDDING_MODEL, threads=threads)
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
@@ -26,7 +31,8 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
     if not texts:
         return []
     model = get_embedding_model()
-    return [vec.tolist() for vec in model.embed(texts)]
+    # Larger batches amortise per-call overhead; the ONNX session is multithreaded.
+    return [vec.tolist() for vec in model.embed(texts, batch_size=128)]
 
 
 def embed_query(text: str) -> list[float]:
