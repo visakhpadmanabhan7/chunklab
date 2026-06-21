@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { getCombinations } from "@/lib/api";
-import { formatPct } from "@/lib/format";
+import { formatPct, parseApiDate } from "@/lib/format";
 import { useRunProgress } from "@/hooks/useRunProgress";
 
 const ACTIVE = new Set(["chunking", "embedding", "evaluating", "running"]);
@@ -17,7 +17,7 @@ function useElapsed(startedAt: string | null, live: boolean) {
     return () => clearInterval(t);
   }, [live]);
   if (!startedAt) return null;
-  const secs = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000));
+  const secs = Math.max(0, Math.floor((now - parseApiDate(startedAt).getTime()) / 1000));
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;

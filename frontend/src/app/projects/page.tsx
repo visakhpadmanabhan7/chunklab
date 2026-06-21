@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, FlaskConical, FolderPlus, Plus, Sparkles, Trash2 } from "lucide-react";
 import { createProject, deleteProject, listProjects } from "@/lib/api";
+import { formatDate } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -73,7 +74,7 @@ export default function ProjectsPage() {
                         {p.name}
                       </h3>
                       <p className="truncate text-xs text-slate-400">
-                        {new Date(p.created_at).toLocaleDateString()}
+                        {formatDate(p.created_at)}
                       </p>
                     </div>
                   </div>

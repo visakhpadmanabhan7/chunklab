@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CheckSquare, FlaskConical, Plus, Square, Trash2 } from "lucide-react";
 import { deleteRun, listRuns } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -97,7 +98,7 @@ export default function RunsPage() {
                     <div className="min-w-0">
                       <p className="truncate font-medium text-slate-800">{r.name}</p>
                       <p className="text-xs text-slate-500">
-                        {r.total_combinations} combinations · top-k {r.top_k} · {new Date(r.created_at).toLocaleString()}
+                        {r.total_combinations} combinations · top-k {r.top_k} · {formatDateTime(r.created_at)}
                       </p>
                     </div>
                   </Link>

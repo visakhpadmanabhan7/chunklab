@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, BarChart3, FileText, FlaskConical, Plus, Upload } from "lucide-react";
 import { listFiles, listRuns } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { Badge } from "@/components/ui/Badge";
@@ -62,7 +63,7 @@ export default function OverviewPage() {
               <div className="min-w-0">
                 <p className="truncate font-medium text-slate-800">{r.name}</p>
                 <p className="text-xs text-slate-500">
-                  {r.total_combinations} combinations · {new Date(r.created_at).toLocaleString()}
+                  {r.total_combinations} combinations · {formatDateTime(r.created_at)}
                 </p>
               </div>
               <div className="flex items-center gap-3">

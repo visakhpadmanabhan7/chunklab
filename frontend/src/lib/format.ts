@@ -19,6 +19,21 @@ export function formatPct(p: number): string {
   return `${Math.round(p * 100)}%`;
 }
 
+// The backend sends naive UTC timestamps (datetime.utcnow(), no tz suffix), which
+// JS would otherwise parse as *local* time — adding a phantom offset (e.g. +2h).
+// Normalize to UTC by appending 'Z' when no timezone marker is present.
+export function parseApiDate(s: string): Date {
+  return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s + "Z");
+}
+
+export function formatDateTime(s: string): string {
+  return parseApiDate(s).toLocaleString();
+}
+
+export function formatDate(s: string): string {
+  return parseApiDate(s).toLocaleDateString();
+}
+
 export function statusColor(status: string): string {
   switch (status) {
     case "completed":
