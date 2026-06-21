@@ -20,9 +20,9 @@ async def _startup(ctx) -> None:
 
     # Self-heal: re-enqueue any files left in a non-terminal parse state
     # (e.g. interrupted by a restart) so they don't get stuck on "uploaded".
-    from sqlalchemy import select
+    from sqlalchemy import select, update
 
-    from app.db.models_core import File
+    from app.db.models_core import File, Run
     from app.db.session import session_scope
 
     async with session_scope() as session:
@@ -31,9 +31,25 @@ async def _startup(ctx) -> None:
                 select(File.id).where(File.status.in_(["uploaded", "parsing"]))
             )
         ).scalars().all()
+        # Self-heal orphaned runs: a run left "running" means a worker was mid-flight
+        # and was killed (e.g. OOM). The heavy run job does not auto-retry, so mark
+        # these failed instead of leaving zombies the UI polls forever.
+        orphaned = (
+            await session.execute(
+                update(Run)
+                .where(Run.status == "running")
+                .values(status="failed", error="Worker was interrupted; run did not finish.")
+                .returning(Run.id)
+            )
+        ).scalars().all()
+        await session.commit()
     for fid in stuck:
         await ctx["redis"].enqueue_job("parse_file_task", str(fid))
-    logger.info("Worker started; embeddings warmed; re-enqueued %d stuck file(s)", len(stuck))
+    logger.info(
+        "Worker started; embeddings warmed; re-enqueued %d stuck file(s); failed %d orphaned run(s)",
+        len(stuck),
+        len(orphaned),
+    )
 
 
 async def get_arq_pool():
@@ -47,3 +63,7 @@ class WorkerSettings:
     job_timeout = 60 * 60  # 1h per run
     max_jobs = 4
     keep_result = 60 * 60
+    # Do NOT auto-retry: the run pipeline writes results as it goes, so re-running
+    # the same run_id from scratch would duplicate rows (unique-key crashes).
+    # An interrupted run is healed to "failed" on startup; the user re-runs it.
+    max_tries = 1
