@@ -6,7 +6,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Legend,
   ResponsiveContainer,
   Scatter,
@@ -69,6 +68,32 @@ const Y_METRICS = [
   { key: "context_recall", label: "ctx recall" },
 ] as const;
 type YKey = (typeof Y_METRICS)[number]["key"];
+
+// Vibrant per-point dot: every combination keeps its own color (no greying out);
+// the Pareto-optimal point gets a soft halo + ring so it still stands out.
+function ScatterDot(props: {
+  cx?: number;
+  cy?: number;
+  payload?: { color: string; optimal: boolean };
+}) {
+  const { cx = 0, cy = 0, payload } = props;
+  if (!payload) return null;
+  const r = payload.optimal ? 8.5 : 6;
+  return (
+    <g>
+      {payload.optimal && <circle cx={cx} cy={cy} r={r + 6} fill={payload.color} fillOpacity={0.16} />}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill={payload.color}
+        fillOpacity={payload.optimal ? 0.95 : 0.78}
+        stroke="#fff"
+        strokeWidth={1.75}
+      />
+    </g>
+  );
+}
 
 function ScatterTip({
   active,
@@ -245,20 +270,10 @@ export function ResultsDashboard({ runId }: { runId: string }) {
                   value: d.optimal ? `${d.label} ★` : d.label,
                   id: d.label,
                   type: "circle" as const,
-                  color: d.optimal ? d.color : "#cbd5e1",
+                  color: d.color,
                 }))}
               />
-              <Scatter data={scatterData}>
-                {scatterData.map((d, i) => (
-                  <Cell
-                    key={i}
-                    fill={d.optimal ? d.color : "#cbd5e1"}
-                    fillOpacity={d.optimal ? 0.92 : 0.55}
-                    stroke={d.optimal ? d.color : "#94a3b8"}
-                    strokeWidth={d.optimal ? 2 : 1}
-                  />
-                ))}
-              </Scatter>
+              <Scatter data={scatterData} shape={<ScatterDot />} isAnimationActive={false} />
             </ScatterChart>
           </ResponsiveContainer>
         </div>
