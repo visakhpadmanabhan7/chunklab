@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ChunkLab — Blog Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121722; --panel2:#161c2a; --border:#243049;
+    --text:#dde3ee; --muted:#94a0b8; --faint:#6b7689;
+    --indigo:#818cf8; --indigo2:#a5b4fc; --sky:#56b6ff; --emerald:#39d0a8;
+    --amber:#f6c177; --rose:#f7768e; --violet:#c4b5fd;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;color:var(--text);font-family:var(--sans);line-height:1.65;
+    letter-spacing:-.011em;font-feature-settings:"cv02","cv03","cv04","cv11";
+    background:
+      radial-gradient(1100px 600px at 100% -8%,rgba(129,140,248,.14),transparent 55%),
+      radial-gradient(900px 500px at -8% 0%,rgba(86,182,255,.10),transparent 55%),
+      var(--bg);
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:56px 28px 90px}
+  a{color:var(--indigo2);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:20px;letter-spacing:-.02em}
+  .mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#6366f1,#56b6ff);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(99,102,241,.35)}
+  .mark span{display:block;border-radius:3px;background:#fff;margin:2px 0}
+  .mark .b1{width:18px;height:4px}.mark .b2{width:12px;height:4px;opacity:.85}.mark .b3{width:15px;height:4px;opacity:.68}
+  .tag{color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.16em;margin-top:10px}
+
+  h1{font-size:clamp(34px,5vw,52px);line-height:1.05;margin:30px 0 10px;letter-spacing:-.03em;font-weight:800}
+  .grad{background:linear-gradient(92deg,#818cf8,#56b6ff 60%,#39d0a8);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{color:var(--muted);font-size:19px;max-width:70ch;margin:0 0 8px}
+  .quote{margin:26px 0;padding:18px 22px;border-left:3px solid var(--indigo);
+    background:linear-gradient(90deg,rgba(129,140,248,.10),transparent);border-radius:0 12px 12px 0;
+    font-size:19px;font-weight:600;color:#e8ecf6;max-width:74ch}
+
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.16em;color:var(--faint);
+    margin:64px 0 20px;font-weight:700}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+  .card{position:relative;background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--border);border-radius:16px;padding:22px 22px 20px;overflow:hidden;
+    transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .card:hover{transform:translateY(-3px);border-color:#33415f;box-shadow:0 18px 40px -20px rgba(0,0,0,.7)}
+  .card .accent{position:absolute;inset:0 auto 0 0;width:4px}
+  .num{font-family:var(--mono);font-size:12px;color:var(--faint);font-weight:600}
+  .pill{display:inline-block;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+    padding:3px 9px;border-radius:999px;margin-left:8px;vertical-align:middle}
+  .card h3{font-size:18px;margin:8px 0 6px;letter-spacing:-.01em;font-weight:700;color:#eef1f8}
+  .card .who{color:var(--faint);font-size:12px;margin:0 0 10px}
+  .card p{color:var(--muted);font-size:13.5px;margin:0 0 12px}
+  .card .src{font-family:var(--mono);font-size:11px;color:var(--faint);border-top:1px dashed var(--border);padding-top:10px}
+
+  ul.clean{list-style:none;padding:0;margin:0}
+  ul.clean li{position:relative;padding:6px 0 6px 22px;color:var(--muted);max-width:80ch}
+  ul.clean li::before{content:"";position:absolute;left:2px;top:13px;width:7px;height:7px;border-radius:2px;background:var(--indigo)}
+  ul.clean li b{color:var(--text);font-weight:600}
+
+  .tpl{background:#0d1119;border:1px solid var(--border);border-radius:14px;padding:4px 0;margin-top:14px;
+    font-family:var(--mono);font-size:12.5px;color:#aeb8cc;overflow:auto}
+  .tpl pre{margin:0;padding:18px 22px;white-space:pre}
+  .tpl .k{color:var(--indigo2)} .tpl .c{color:var(--faint)}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.cols{grid-template-columns:1fr}}
+  .box{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+  .box h4{margin:0 0 8px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+  .box p,.box li{font-size:13px;color:var(--muted)}
+  .foot{margin-top:60px;padding-top:22px;border-top:1px solid var(--border);color:var(--faint);font-size:12.5px}
+  code{font-family:var(--mono);background:rgba(129,140,248,.12);color:var(--indigo2);padding:1px 6px;border-radius:6px;font-size:.9em}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <span class="mark"><span><span class="b1"></span><span class="b2"></span><span class="b3"></span></span></span>
+    ChunkLab
+  </div>
+  <p class="tag">Blog plan · theme · series · template</p>
+
+  <h1>Chunking is an <span class="grad">untuned hyperparameter</span>.</h1>
+  <p class="lead">The base plan for writing about ChunkLab: one overarching theme, a six-post series that ladders up to it, and a reusable template.</p>
+
+  <div class="quote">"Chunking is an untuned hyperparameter — so I built the benchmark for it, in the open."</div>
+
+  <p class="lead" style="font-size:16px">
+    Every RAG tutorial picks a chunk size (512? 1000? overlap 10%?) and moves on — nobody measures whether the choice was good.
+    ChunkLab is that missing A/B harness: define a <b style="color:var(--text)">matrix</b> of chunking strategies, run them over your
+    documents, and plot retrieval accuracy (LLM-as-judge + IR metrics) against token cost to pick the point on the Pareto frontier you actually want.
+    Each post sells the idea two ways — <b style="color:var(--text)">the product</b> (for RAG practitioners) and <b style="color:var(--text)">the build</b>
+    (for backend / full-stack readers) — both pointing at the open-source repo.
+  </p>
+
+  <h2>The series</h2>
+  <div class="grid">
+
+    <div class="card">
+      <div class="accent" style="background:var(--indigo)"></div>
+      <span class="num">01</span><span class="pill" style="background:rgba(129,140,248,.18);color:var(--indigo2)">Flagship</span>
+      <h3>Your chunking strategy is an untuned hyperparameter</h3>
+      <p class="who">Audience: anyone building RAG · product + problem</p>
+      <p>The hook everyone clicks. The problem (chunking choices are guesses), the idea (benchmark the matrix), a 90-second tour — project → upload → matrix → run → cost-vs-accuracy Pareto — and one real finding.</p>
+      <div class="src">docs/overview.html · README.md · knowledge/00</div>
+    </div>
+
+    <div class="card">
+      <div class="accent" style="background:var(--sky)"></div>
+      <span class="num">02</span><span class="pill" style="background:rgba(86,182,255,.18);color:var(--sky)">Methodology</span>
+      <h3>How do you actually <i>score</i> a chunking strategy?</h3>
+      <p class="who">Audience: ML / RAG / eval-curious · the credibility post</p>
+      <p>Auto-generated gold QA set, pgvector cosine retrieval, the LLM-as-judge rubric at temp 0, the computed IR metrics (P@k, recall@k, MRR, nDCG@k, F2), and the cost model — with a worked end-to-end example.</p>
+      <div class="src">docs/EVALUATION.md · retrieval_and_evaluation.html · eval/*</div>
+    </div>
+
+    <div class="card">
+      <div class="accent" style="background:var(--rose)"></div>
+      <span class="num">03</span><span class="pill" style="background:rgba(247,118,142,.18);color:var(--rose)">War story</span>
+      <h3>Parallelizing a RAG eval pipeline — and the 4 bugs that taught me how</h3>
+      <p class="who">Audience: backend / async Python / infra · highest engagement</p>
+      <p>Sequential → parallel, and what broke: a worker <b style="color:var(--text)">OOM</b>, a shared-ONNX <b style="color:var(--text)">deadlock</b>, free-tier <b style="color:var(--text)">429 thrash</b>, and a <b style="color:var(--text)">zombie run</b> from a non-idempotent retry. The fixes, honestly told.</p>
+      <div class="src">git d316ef6 / ef31f50 · run_pipeline.py · settings.py</div>
+    </div>
+
+    <div class="card">
+      <div class="accent" style="background:var(--emerald)"></div>
+      <span class="num">04</span><span class="pill" style="background:rgba(57,208,168,.18);color:var(--emerald)">Architecture</span>
+      <h3>The stack: FastAPI + arq + pgvector + Next.js</h3>
+      <p class="who">Audience: full-stack · system design / decisions</p>
+      <p>The sync-API / async-worker boundary, two Postgres schemas, <code>vector(384)</code> + HNSW cosine, SSE progress over Redis pub/sub + a snapshot hash, and the ADRs. Trade-offs, not a feature list.</p>
+      <div class="src">docs/ARCHITECTURE.md · DECISIONS.md · DATA_MODEL.md</div>
+    </div>
+
+    <div class="card">
+      <div class="accent" style="background:var(--violet)"></div>
+      <span class="num">05</span><span class="pill" style="background:rgba(196,181,253,.18);color:var(--violet)">Meta</span>
+      <h3>Dogfooding RAG: the product is its own docs assistant</h3>
+      <p class="who">Audience: RAG builders · the clever twist</p>
+      <p>The "Ask the docs" assistant runs the <i>same</i> pipeline over ChunkLab's own knowledge base — chunk → embed → <code>doc_chunks</code> → cosine top-k → grounded answer — with idempotent re-ingestion via a corpus hash.</p>
+      <div class="src">knowledge/06 · services/docs/knowledge.py</div>
+    </div>
+
+    <div class="card">
+      <div class="accent" style="background:var(--amber)"></div>
+      <span class="num">06</span><span class="pill" style="background:rgba(246,193,119,.18);color:var(--amber)">Optional</span>
+      <h3>What the numbers actually said</h3>
+      <p class="who">Audience: RAG practitioners · the data post</p>
+      <p>Once there are runs worth showing: which strategies won on accuracy, which on cost, where the Pareto frontier sat — and the surprises. Built from real CSV exports + the analytics dashboard.</p>
+      <div class="src">CSV export · analytics dashboard</div>
+    </div>
+
+  </div>
+
+  <h2>Conventions</h2>
+  <div class="cols">
+    <div class="box">
+      <h4>Writing</h4>
+      <ul class="clean">
+        <li><b>Voice</b> — first-person, honest, show the failures (especially #3). No hype.</li>
+        <li><b>Length</b> — ~1,200–2,000 words. One idea per post; link siblings, don't cram.</li>
+        <li><b>Code</b> — real snippets from the repo (cite <code>path:line</code>), not pseudo-code.</li>
+        <li><b>Every post ends</b> with what it is, the repo link, and an invite to try it.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h4>Publishing</h4>
+      <ul class="clean">
+        <li><b>Primary</b> — dev.to and/or a personal blog.</li>
+        <li><b>Cross-post</b> — Medium + Hashnode with <code>canonical_url</code> set to the primary.</li>
+        <li><b>Amplify</b> — LinkedIn + X threads; a Show HN for #1 or #3 once public.</li>
+        <li><b>Cadence</b> — one post / 1–2 weeks, in order. Lead with #1 and #3.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Per-post template</h2>
+  <p class="lead" style="font-size:15px">Copy <code>blog/_TEMPLATE.md</code> → <code>blog/NN-slug.md</code> for each post.</p>
+  <div class="tpl"><pre><span class="c">---</span>
+<span class="k">title:</span> ""              <span class="c"># final headline</span>
+<span class="k">subtitle:</span> ""           <span class="c"># one-line deck</span>
+<span class="k">slug:</span> ""               <span class="c"># url-safe; matches the filename</span>
+<span class="k">status:</span> draft          <span class="c"># draft | ready | published</span>
+<span class="k">audience:</span> ""           <span class="c"># who it's for</span>
+<span class="k">tags:</span> []               <span class="c"># [rag, llm, python, pgvector]</span>
+<span class="k">canonical_url:</span> ""       <span class="c"># set after first publish</span>
+<span class="c">---</span>
+
+<span class="k">## The hook</span>          <span class="c"># the ONE idea, in 2–3 sentences</span>
+<span class="k">## Why it matters</span>     <span class="c"># who has this problem, what it costs</span>
+<span class="k">## Key takeaways</span>      <span class="c"># 3–5 bullets — write these first</span>
+<span class="k">## Outline</span>            <span class="c"># section beats</span>
+<span class="k">## Assets to include</span>  <span class="c"># real screenshots + snippets (path:line)</span>
+<span class="k">## Sources in the repo</span> <span class="c"># keeps every claim verifiable</span>
+<span class="k">## Draft</span>              <span class="c"># write here</span>
+<span class="k">## Call to action</span>      <span class="c"># what it is + repo link + try-it invite</span></pre></div>
+
+  <div class="foot">
+    Source: <code>blog/README.md</code> + <code>blog/_TEMPLATE.md</code> ·
+    ChunkLab is open source (MIT) · github.com/visakhpadmanabhan7/chunklab
+  </div>
+
+</div>
+</body>
+</html>
